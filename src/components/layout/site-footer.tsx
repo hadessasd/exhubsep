@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { GraduationCap } from "lucide-react";
-import { SUPPORT_DISCORD } from "@/lib/data/catalog";
+import { SUPPORT_DISCORD, SUPPORT_TELEGRAM_URL, SUPPORT_TELEGRAM } from "@/lib/data/catalog";
 
 export function SiteFooter() {
   return (
@@ -21,7 +21,15 @@ export function SiteFooter() {
             Secure checkout via crypto gift cards or on-chain BTC, SOL, and ETH.
           </p>
           <p className="mt-3 text-xs text-muted">
-            Support 24/7 · live chat on site · Discord @{SUPPORT_DISCORD}
+            Support 24/7 · live chat on site · Discord @{SUPPORT_DISCORD} ·{" "}
+            <a
+              href={SUPPORT_TELEGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-primary hover:underline"
+            >
+              Telegram @{SUPPORT_TELEGRAM}
+            </a>
           </p>
         </div>
         <div>

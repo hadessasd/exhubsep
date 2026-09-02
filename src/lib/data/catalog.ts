@@ -197,6 +197,8 @@ export const MAX_ORDERS_PER_USER = 5;
 /** Locked — see @/lib/admin-lock. Never accept overrides. */
 export { LOCKED_ADMIN_EMAIL as ADMIN_EMAIL } from "@/lib/admin-lock";
 export const SUPPORT_DISCORD = "minjunio";
+export const SUPPORT_TELEGRAM_URL = "https://t.me/SATBypass";
+export const SUPPORT_TELEGRAM = "SATBypass";
 
 const YEAR = 2026;
 
@@ -884,14 +886,6 @@ export const INTERNSHIP_EXTRAS: {
   { id: "interview-coach", label: "Interview coaching", description: "2 mock interview sessions", priceUsd: 0, group: "coaching" },
   { id: "visa-letter", label: "CPT/OPT letter support", description: "Documentation guidance for F-1 students", priceUsd: 0, group: "docs" },
 ];
-
-export const CONTACT_METHODS = [
-  { id: "email", label: "Email" },
-  { id: "instagram", label: "Instagram" },
-  { id: "discord", label: "Discord" },
-  { id: "telegram", label: "Telegram" },
-  { id: "whatsapp", label: "WhatsApp" },
-] as const;
 
 export function estimateWeeklySalary(
   fieldId: string,

@@ -69,6 +69,20 @@ function HomePage() {
         {/* 1. Hero + categories */}
         <HeroSearch />
 
+        <div className="mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+          <a
+            href="https://t.me/SATBypass"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary-soft px-4 py-3 text-sm font-semibold text-fg shadow-sm transition hover:border-primary/50"
+          >
+            <span>Join our Telegram · t.me/SATBypass</span>
+            <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-fg">
+              Open
+            </span>
+          </a>
+        </div>
+
         {/* 2. Vouches under categories, above products */}
         <div className="mt-8 sm:mt-10">
           <ScoreVouches />

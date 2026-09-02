@@ -147,6 +147,14 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
         </nav>
 
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
+          <a
+            href="https://t.me/SATBypass"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden h-9 items-center rounded-xl border border-primary/30 bg-primary-soft px-2.5 text-xs font-semibold text-primary sm:inline-flex"
+          >
+            Telegram
+          </a>
           <Link
             to="/"
             hash="catalog"
@@ -232,6 +240,15 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
               </Link>
             ),
           )}
+          <a
+            href="https://t.me/SATBypass"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-primary hover:bg-primary-soft"
+          >
+            Telegram · t.me/SATBypass
+          </a>
           {user ? (
             <>
               <Link
