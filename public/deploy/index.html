@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ExamHub — GitHub + Render Deploy Guide</title>
+  <style>
+    :root {
+      --bg: #1a120a;
+      --card: #2c1f14;
+      --border: #5c4030;
+      --text: #f5ebe0;
+      --muted: #c4a882;
+      --accent: #c17f3a;
+      --green: #3d9b58;
+      --code: #0f0a06;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 20% -10%, #3d2918, var(--bg));
+      color: var(--text);
+      line-height: 1.65;
+      padding: 24px 16px 64px;
+    }
+    .wrap { max-width: 820px; margin: 0 auto; }
+    h1, h2, h3 { font-family: "Space Grotesk", system-ui, sans-serif; line-height: 1.2; }
+    h1 { font-size: 2rem; margin: 0 0 8px; }
+    h2 { font-size: 1.25rem; margin: 0 0 12px; color: #fff8f0; }
+    a { color: #f0b27a; }
+    .muted { color: var(--muted); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 22px;
+      margin: 16px 0;
+    }
+    .step { display: flex; gap: 12px; margin: 12px 0; }
+    .n {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #1a120a;
+      font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem;
+    }
+    code, .term {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85rem;
+    }
+    .term {
+      display: block;
+      background: var(--code);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 10px 0;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      color: #f0d4a8;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .pill {
+      display: inline-block;
+      background: #1f3d28;
+      color: #8ee0a8;
+      border: 1px solid #3d9b58;
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .warn {
+      background: #3d2a12;
+      border-left: 4px solid var(--accent);
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin: 12px 0;
+    }
+    .ok {
+      background: #0f2918;
+      border-left: 4px solid var(--green);
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin: 12px 0;
+    }
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #1a120a;
+      font-weight: 800;
+      text-decoration: none;
+      padding: 12px 18px;
+      border-radius: 12px;
+      margin: 6px 6px 6px 0;
+    }
+    .btn.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    header { margin-bottom: 20px; }
+    .badge {
+      display: inline-block;
+      background: #3d2918;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="badge">ExamHub · Deploy kit</div>
+      <h1>Upload to GitHub → host on Render</h1>
+      <p class="muted">
+        This guide walks you through the <strong>zip → GitHub repo → Render</strong>
+        path. You only need a free Neon database key + Render env vars.
+        Email/password login works without Google.
+      </p>
+      <a class="btn" href="examhub-github-render.zip" download>Download project ZIP</a>
+      <a class="btn" href="github-uploader.html">Open ZIP → GitHub uploader</a>
+      <a class="btn secondary" href="https://github.com/new" target="_blank" rel="noopener">Open GitHub New Repo</a>
+      <a class="btn secondary" href="https://dashboard.render.com" target="_blank" rel="noopener">Open Render</a>
+    </header>
+
+    <div class="card">
+      <h2>What you’ll create</h2>
+      <ul>
+        <li><strong>GitHub repo</strong> — source code from the zip</li>
+        <li><strong>Neon Postgres</strong> — free database (<code>DATABASE_URL</code>)</li>
+        <li><strong>Render Web Service</strong> — live site (free tier sleeps when idle)</li>
+      </ul>
+      <div class="ok">
+        Admin stays locked to <strong>minjunnios@gmail.com</strong> after deploy.
+        Support Discord: <strong>minjunio</strong>.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Keys you need (simple table)</h2>
+      <table>
+        <thead>
+          <tr><th>Key / secret</th><th>How to get it</th><th>Required?</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>DATABASE_URL</code></td>
+            <td>
+              1. Go to <a href="https://console.neon.tech" target="_blank" rel="noopener">console.neon.tech</a><br />
+              2. Sign in → <strong>New Project</strong><br />
+              3. Open <strong>Connection details</strong> → copy the URI that starts with
+              <code>postgresql://…</code><br />
+              That’s your key.
+            </td>
+            <td><span class="pill">Yes</span></td>
+          </tr>
+          <tr>
+            <td><code>BETTER_AUTH_SECRET</code></td>
+            <td>
+              On Mac/Linux terminal:
+              <span class="term">openssl rand -hex 32</span>
+              Or leave blank on Render and click <strong>Generate</strong>.
+            </td>
+            <td><span class="pill">Yes</span></td>
+          </tr>
+          <tr>
+            <td><code>BETTER_AUTH_URL</code></td>
+            <td>
+              After Render creates the service, copy the site URL, e.g.
+              <code>https://examhub-xxxx.onrender.com</code>
+              (no trailing slash).
+            </td>
+            <td><span class="pill">Yes</span></td>
+          </tr>
+          <tr>
+            <td><code>VITE_AUTH_ENABLED</code></td>
+            <td>Set to <code>true</code> on Render (already in <code>render.yaml</code>).</td>
+            <td><span class="pill">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Google OAuth client</td>
+            <td>
+              <strong>Not required.</strong> Users can create accounts with email + password.
+              Google sign-in on the Grok preview uses a shared broker you don’t need on Render.
+            </td>
+            <td>Optional</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Step 1 — Create the GitHub repo</h2>
+      <div class="step"><div class="n">1</div><div>Open <a href="https://github.com/new" target="_blank" rel="noopener">github.com/new</a></div></div>
+      <div class="step"><div class="n">2</div><div>
+        Repository name: <code>examhub</code> (or any name you like).<br />
+        Visibility: <strong>Private</strong> recommended.
+      </div></div>
+      <div class="step"><div class="n">3</div><div>
+        Click <strong>Create repository</strong> — leave it empty (no README needed if you upload the zip).
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        On the empty repo page: <strong>Add file → Upload files</strong> → drop everything from the unzipped folder
+        (or use the zip upload if GitHub accepts it, then extract isn’t automatic — better to unzip first).
+      </div></div>
+      <div class="step"><div class="n">5</div><div>
+        Commit message: <code>Initial ExamHub deploy</code> → <strong>Commit changes</strong>.
+      </div></div>
+      <div class="warn">
+        Your repo URL will look like:<br />
+        <code>https://github.com/YOUR_USERNAME/examhub</code><br />
+        That is what Render connects to.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Step 2 — Get the Neon database key</h2>
+      <div class="step"><div class="n">1</div><div>Sign up at <a href="https://neon.tech" target="_blank" rel="noopener">neon.tech</a> (free).</div></div>
+      <div class="step"><div class="n">2</div><div><strong>New Project</strong> → name it <code>examhub</code>.</div></div>
+      <div class="step"><div class="n">3</div><div>
+        Dashboard → <strong>Connection string</strong> → copy <strong>URI</strong>
+        (includes user, password, host, database).
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        Paste somewhere safe — this is <code>DATABASE_URL</code>.
+        Keep <code>?sslmode=require</code> if Neon shows it.
+      </div></div>
+    </div>
+
+    <div class="card">
+      <h2>Step 3 — Connect repo on Render</h2>
+      <div class="step"><div class="n">1</div><div>
+        Go to <a href="https://dashboard.render.com" target="_blank" rel="noopener">dashboard.render.com</a> → sign in with GitHub.
+      </div></div>
+      <div class="step"><div class="n">2</div><div>
+        <strong>New +</strong> → <strong>Web Service</strong> → connect the <code>examhub</code> repo.
+      </div></div>
+      <div class="step"><div class="n">3</div><div>
+        Settings:
+        <span class="term">Runtime: Node
+Build Command: npm ci --include=dev && npm run build:render
+Start Command: npm start</span>
+        (Or use the included <code>render.yaml</code> Blueprint: New → Blueprint → select repo.)
+      </div></div>
+      <div class="step"><div class="n">4</div><div>
+        Environment variables (Environment tab):
+        <span class="term">DATABASE_URL=postgresql://…from neon…
+BETTER_AUTH_URL=https://YOUR-SERVICE.onrender.com
+BETTER_AUTH_SECRET=paste-openssl-or-generate
+VITE_AUTH_ENABLED=true
+NITRO_PRESET=node-server
+NODE_ENV=production</span>
+      </div></div>
+      <div class="step"><div class="n">5</div><div>
+        Click <strong>Create Web Service</strong> / <strong>Deploy</strong>. First build takes a few minutes.
+      </div></div>
+      <div class="step"><div class="n">6</div><div>
+        When live, open the Render URL. Sign up with email, or sign in as admin
+        with <strong>minjunnios@gmail.com</strong> after creating that account.
+      </div></div>
+    </div>
+
+    <div class="card">
+      <h2>Step 4 — Optional: custom domain</h2>
+      <p class="muted">
+        Render → your service → <strong>Settings → Custom Domains</strong> → add
+        <code>examhub.shop</code> (or whatever you own) → point DNS as Render shows.
+        Then set <code>BETTER_AUTH_URL</code> to <code>https://examhub.shop</code> and redeploy.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Git CLI alternative (instead of upload UI)</h2>
+      <span class="term"># unzip the project, then:
+cd examhub
+git init
+git add .
+git commit -m "Initial ExamHub"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/examhub.git
+git push -u origin main</span>
+      <p class="muted">Create a <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">Personal Access Token</a> if GitHub asks for a password when pushing (use the token as the password).</p>
+    </div>
+
+    <div class="card">
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li><strong>Build fails on migrate</strong> — check <code>DATABASE_URL</code> is correct and Neon project is active.</li>
+        <li><strong>Blank page</strong> — open Render logs; ensure start command is <code>npm start</code> and <code>NITRO_PRESET=node-server</code>.</li>
+        <li><strong>Invalid origin on login</strong> — <code>BETTER_AUTH_URL</code> must exactly match the public HTTPS URL.</li>
+        <li><strong>Free tier sleep</strong> — first visit after idle can take ~30–60s to wake.</li>
+      </ul>
+      <div class="warn">
+        Need help? Discord <strong>minjunio</strong> · admin email <strong>minjunnios@gmail.com</strong>
+      </div>
+    </div>
+
+    <p class="muted" style="text-align:center;margin-top:28px;font-size:0.85rem;">
+      ExamHub deploy kit · keep secrets out of public commits
+    </p>
+  </div>
+</body>
+</html>

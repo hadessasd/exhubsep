@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ExamHub → Push ZIP into existing GitHub repo</title>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg: #14100c;
+      --card: #241a12;
+      --border: #5a4030;
+      --text: #f6ebe0;
+      --muted: #c4a882;
+      --accent: #c17f3a;
+      --accent2: #e8a85a;
+      --ok: #3d9b58;
+      --err: #d45a4a;
+      --code: #0c0906;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 480px at 15% -5%, #3d2918 0%, transparent 55%),
+        var(--bg);
+      padding: 28px 16px 72px;
+      line-height: 1.55;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.02em; }
+    h2 { font-size: 1.05rem; margin: 0 0 12px; }
+    p { margin: 0 0 10px; }
+    .muted { color: var(--muted); font-size: 0.95rem; }
+    .card {
+      background: linear-gradient(165deg, #2c1f14, var(--card));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 22px;
+      margin: 14px 0;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+      margin: 12px 0 6px;
+    }
+    input[type="text"], input[type="password"], select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: var(--code);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(193,127,58,.2);
+    }
+    select option { background: #1a120a; }
+    .row { display: grid; gap: 12px; }
+    @media (min-width: 560px) {
+      .row.two { grid-template-columns: 1fr 1fr; }
+    }
+    .drop {
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 28px 16px;
+      text-align: center;
+      background: rgba(0,0,0,.2);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .drop:hover, .drop.drag {
+      border-color: var(--accent);
+      background: rgba(193,127,58,.08);
+    }
+    .drop strong { color: var(--accent2); }
+    .drop input { display: none; }
+    .file-name {
+      margin-top: 10px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.85rem;
+      color: var(--ok);
+      word-break: break-all;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      margin-top: 16px;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-weight: 800;
+      font-size: 0.98rem;
+      cursor: pointer;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      color: #1a120a;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      margin-top: 8px;
+    }
+    .btn.secondary {
+      background: #3d2918;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .warn {
+      background: #3a2812;
+      border-left: 4px solid var(--accent);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+    .ok-msg {
+      background: #0f2918;
+      border-left: 4px solid var(--ok);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      color: #b8e6c4;
+      margin-top: 10px;
+      display: none;
+    }
+    .ok-msg.show { display: block; }
+    .pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    a.help { color: var(--accent2); }
+    .progress-wrap { display: none; margin-top: 14px; }
+    .progress-wrap.show { display: block; }
+    .bar {
+      height: 10px;
+      background: #0c0906;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--ok), #6bcf85);
+      transition: width .2s;
+    }
+    .log {
+      margin-top: 10px;
+      max-height: 240px;
+      overflow: auto;
+      background: var(--code);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: #d8c4a8;
+      white-space: pre-wrap;
+    }
+    .done {
+      display: none;
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #0f2918;
+      border: 1px solid var(--ok);
+    }
+    .done.show { display: block; }
+    .done a { color: #8ee0a8; font-weight: 700; word-break: break-all; }
+    .repo-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 8px;
+      display: none;
+    }
+    .repo-meta.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="pill">Pushes into an existing repo · does not create a new one</div>
+    <h1>Push ZIP into your GitHub repo</h1>
+    <p class="muted">
+      1) Paste your GitHub token → we load your repos.<br />
+      2) Pick the repo (or type <code>owner/name</code>).<br />
+      3) Attach the ExamHub zip → upload overwrites/updates files on that repo.
+    </p>
+
+    <div class="card">
+      <h2>Get your key (token)</h2>
+      <p class="muted" style="margin:0;font-size:.9rem">
+        <a class="help" href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a>
+        → Generate new token (classic) → enable scope <strong>repo</strong> → copy <code>ghp_…</code>
+      </p>
+      <div class="warn">
+        Token stays in this browser tab only. Use a repo you already created on GitHub
+        (empty repo is fine — “Add file” page is OK).
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>1. GitHub token</h2>
+      <label for="token">Personal access token</label>
+      <input id="token" type="password" autocomplete="off" placeholder="ghp_… or github_pat_…" />
+      <button class="btn secondary" id="loadRepos" type="button">Detect my repos</button>
+      <div class="ok-msg" id="userOk"></div>
+    </div>
+
+    <div class="card">
+      <h2>2. Choose existing repo</h2>
+      <label for="repoSelect">Detected repositories</label>
+      <select id="repoSelect">
+        <option value="">— click “Detect my repos” first —</option>
+      </select>
+      <label for="repoFull">Or type owner/repo exactly</label>
+      <input id="repoFull" type="text" placeholder="youruser/examhub" />
+      <div class="repo-meta" id="repoMeta"></div>
+    </div>
+
+    <div class="card">
+      <h2>3. Attach ZIP</h2>
+      <div class="drop" id="drop">
+        <p><strong>Click</strong> or drop <code>examhub-github-render.zip</code></p>
+        <input type="file" id="file" accept=".zip,application/zip" />
+        <div class="file-name" id="fileName"></div>
+      </div>
+
+      <label for="message">Commit message</label>
+      <input id="message" type="text" value="Deploy ExamHub source" />
+
+      <button class="btn" id="go" type="button">Upload ZIP into selected repo</button>
+      <button class="btn ghost" id="clear" type="button">Clear</button>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="bar"><i id="bar"></i></div>
+        <div class="log" id="log"></div>
+      </div>
+      <div class="done" id="done">
+        <strong style="color:#8ee0a8">Pushed to existing repo</strong>
+        <p style="margin:8px 0 0"><a id="repoLink" href="#" target="_blank" rel="noopener"></a></p>
+        <p class="muted" style="margin:8px 0 0;font-size:.9rem">
+          Next: Render → New Web Service → connect this same repo → set
+          <code>DATABASE_URL</code>, <code>BETTER_AUTH_URL</code>, <code>BETTER_AUTH_SECRET</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let zipFile = null;
+    let meLogin = "";
+    const repoCache = new Map(); // full_name -> repo object
+
+    function log(msg) {
+      const el = $("log");
+      el.textContent += msg + "\n";
+      el.scrollTop = el.scrollHeight;
+    }
+    function setProgress(pct) {
+      $("bar").style.width = Math.min(100, Math.max(0, pct)) + "%";
+    }
+
+    async function gh(path, { method = "GET", body, token } = {}) {
+      const res = await fetch("https://api.github.com" + path, {
+        method,
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: "Bearer " + token,
+          "X-GitHub-Api-Version": "2022-11-28",
+          ...(body ? { "Content-Type": "application/json" } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const text = await res.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = { message: text };
+      }
+      if (!res.ok) {
+        const msg = (data && data.message) || res.statusText || "GitHub error";
+        const err = new Error(msg);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    }
+
+    function parseOwnerRepo() {
+      const typed = $("repoFull").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+      const selected = $("repoSelect").value.trim();
+      const full = typed || selected;
+      if (!full || !full.includes("/")) {
+        throw new Error("Pick a repo from the list or type owner/repo");
+      }
+      const [owner, repo, ...rest] = full.split("/");
+      if (!owner || !repo || rest.length) {
+        throw new Error("Use format owner/repo");
+      }
+      return { owner, repo, full: owner + "/" + repo };
+    }
+
+    // ── ZIP pick ──
+    const drop = $("drop");
+    const fileInput = $("file");
+    drop.addEventListener("click", () => fileInput.click());
+    drop.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      drop.classList.add("drag");
+    });
+    drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      drop.classList.remove("drag");
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+    fileInput.addEventListener("change", () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (f) setFile(f);
+    });
+    function setFile(f) {
+      if (!/\.zip$/i.test(f.name)) {
+        alert("Choose a .zip file");
+        return;
+      }
+      zipFile = f;
+      $("fileName").textContent =
+        "✓ " + f.name + " (" + Math.round(f.size / 1024) + " KB)";
+    }
+
+    $("repoSelect").addEventListener("change", () => {
+      if ($("repoSelect").value) {
+        $("repoFull").value = $("repoSelect").value;
+        showRepoMeta($("repoSelect").value);
+      }
+    });
+    $("repoFull").addEventListener("change", () => {
+      try {
+        const { full } = parseOwnerRepo();
+        showRepoMeta(full);
+      } catch {
+        /* ignore */
+      }
+    });
+
+    function showRepoMeta(full) {
+      const r = repoCache.get(full);
+      const el = $("repoMeta");
+      if (!r) {
+        el.classList.remove("show");
+        return;
+      }
+      el.textContent =
+        (r.private ? "Private" : "Public") +
+        " · default branch: " +
+        (r.default_branch || "main") +
+        " · " +
+        (r.html_url || "");
+      el.classList.add("show");
+    }
+
+    $("loadRepos").onclick = async () => {
+      const token = $("token").value.trim();
+      if (!token) return alert("Paste your GitHub token first");
+      const btn = $("loadRepos");
+      btn.disabled = true;
+      btn.textContent = "Loading…";
+      try {
+        const me = await gh("/user", { token });
+        meLogin = me.login;
+        $("userOk").textContent =
+          "✓ Detected account @" + me.login + " — loading repositories…";
+        $("userOk").classList.add("show");
+
+        // List repos the user can push to (affiliation=owner,collaborator,organization_member)
+        const all = [];
+        for (let page = 1; page <= 5; page++) {
+          const batch = await gh(
+            "/user/repos?per_page=100&page=" +
+              page +
+              "&sort=updated&affiliation=owner,collaborator,organization_member",
+            { token },
+          );
+          if (!batch.length) break;
+          all.push(...batch);
+          if (batch.length < 100) break;
+        }
+
+        repoCache.clear();
+        const sel = $("repoSelect");
+        sel.innerHTML = "";
+        if (!all.length) {
+          sel.innerHTML =
+            '<option value="">No repos found — create one empty repo on GitHub first</option>';
+          throw new Error(
+            "No repositories found. Create an empty repo on github.com first, then detect again.",
+          );
+        }
+
+        // Prefer examhub-like names at top
+        all.sort((a, b) => {
+          const score = (n) =>
+            /examhub|exam-hub/i.test(n) ? 0 : /site|web|app/i.test(n) ? 1 : 2;
+          return score(a.name) - score(b.name) || a.full_name.localeCompare(b.full_name);
+        });
+
+        const ph = document.createElement("option");
+        ph.value = "";
+        ph.textContent = "— select a repo (" + all.length + " found) —";
+        sel.appendChild(ph);
+
+        for (const r of all) {
+          repoCache.set(r.full_name, r);
+          const opt = document.createElement("option");
+          opt.value = r.full_name;
+          opt.textContent =
+            r.full_name +
+            (r.private ? " 🔒" : "") +
+            "  (" +
+            (r.default_branch || "main") +
+            ")";
+          sel.appendChild(opt);
+        }
+
+        // Auto-pick examhub if present
+        const prefer =
+          all.find((r) => /examhub/i.test(r.name)) ||
+          all.find((r) => r.owner && r.owner.login === me.login);
+        if (prefer) {
+          sel.value = prefer.full_name;
+          $("repoFull").value = prefer.full_name;
+          showRepoMeta(prefer.full_name);
+        }
+
+        $("userOk").textContent =
+          "✓ @" +
+          me.login +
+          " — " +
+          all.length +
+          " repo(s) detected. Select one below.";
+      } catch (e) {
+        alert("Could not load repos: " + e.message);
+        $("userOk").classList.remove("show");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Detect my repos";
+      }
+    };
+
+    function toBase64(u8) {
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < u8.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function normalizePaths(files) {
+      const names = files.map((f) => f.path);
+      if (!names.length) return files;
+      const first = names[0].split("/")[0];
+      const allPrefixed =
+        first && names.every((n) => n === first || n.startsWith(first + "/"));
+      if (!allPrefixed || !names.some((n) => n.startsWith(first + "/"))) {
+        return files;
+      }
+      return files
+        .filter((f) => f.path !== first)
+        .map((f) => ({
+          ...f,
+          path: f.path.startsWith(first + "/")
+            ? f.path.slice(first.length + 1)
+            : f.path,
+        }))
+        .filter((f) => f.path && !f.path.endsWith("/"));
+    }
+
+    async function resolveBranch(owner, repo, token) {
+      const info = repoCache.get(owner + "/" + repo);
+      if (info && info.default_branch) return info.default_branch;
+      try {
+        const r = await gh("/repos/" + owner + "/" + repo, { token });
+        repoCache.set(r.full_name, r);
+        return r.default_branch || "main";
+      } catch (e) {
+        if (e.status === 404) {
+          throw new Error(
+            "Repo not found: " +
+              owner +
+              "/" +
+              repo +
+              " — create it on GitHub first, then Detect my repos again.",
+          );
+        }
+        throw e;
+      }
+    }
+
+    $("go").onclick = async () => {
+      const token = $("token").value.trim();
+      if (!token) return alert("Paste your GitHub token");
+      if (!zipFile) return alert("Attach the ZIP first");
+
+      let owner, repo;
+      try {
+        ({ owner, repo } = parseOwnerRepo());
+      } catch (e) {
+        return alert(e.message);
+      }
+
+      const message = $("message").value.trim() || "Deploy ExamHub source";
+      const btn = $("go");
+      btn.disabled = true;
+      $("progressWrap").classList.add("show");
+      $("done").classList.remove("show");
+      $("log").textContent = "";
+      setProgress(2);
+
+      try {
+        // Confirm repo exists (do NOT create)
+        log("Checking repo " + owner + "/" + repo + "…");
+        const repoInfo = await gh("/repos/" + owner + "/" + repo, { token });
+        repoCache.set(repoInfo.full_name, repoInfo);
+        const branch = repoInfo.default_branch || "main";
+        log("Found repo · default branch: " + branch);
+        setProgress(6);
+
+        log("Reading ZIP…");
+        const buf = await zipFile.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+        let files = [];
+        zip.forEach((relativePath, entry) => {
+          if (entry.dir) return;
+          if (relativePath.startsWith("__MACOSX/")) return;
+          if (/(^|\/)\.DS_Store$/.test(relativePath)) return;
+          files.push({ path: relativePath.replace(/^\/+/, ""), entry });
+        });
+        files = normalizePaths(files);
+        if (!files.length) throw new Error("ZIP is empty");
+        log("Files in ZIP: " + files.length);
+        setProgress(10);
+
+        // Decode
+        const payloads = [];
+        for (const f of files) {
+          const u8 = await f.entry.async("uint8array");
+          if (u8.byteLength > 40 * 1024 * 1024) {
+            log("SKIP large: " + f.path);
+            continue;
+          }
+          payloads.push({ path: f.path, content: toBase64(u8) });
+        }
+
+        // Create blobs
+        log("Uploading blobs…");
+        const treeItems = [];
+        for (let i = 0; i < payloads.length; i++) {
+          const p = payloads[i];
+          let blob;
+          try {
+            blob = await gh("/repos/" + owner + "/" + repo + "/git/blobs", {
+              method: "POST",
+              token,
+              body: { content: p.content, encoding: "base64" },
+            });
+          } catch (e) {
+            // Fallback: Contents API for this file
+            log("Blob failed for " + p.path + " — trying Contents API…");
+            await putContent(owner, repo, branch, p.path, p.content, message, token);
+            setProgress(10 + (80 * (i + 1)) / payloads.length);
+            continue;
+          }
+          treeItems.push({
+            path: p.path,
+            mode: "100644",
+            type: "blob",
+            sha: blob.sha,
+          });
+          setProgress(10 + (70 * (i + 1)) / payloads.length);
+          if ((i + 1) % 15 === 0 || i === payloads.length - 1) {
+            log("Blobs " + (i + 1) + "/" + payloads.length);
+          }
+        }
+
+        if (!treeItems.length) {
+          log("All files uploaded via Contents API.");
+          setProgress(100);
+        } else {
+          // Parent commit if branch exists
+          let parentSha = null;
+          let baseTree = null;
+          try {
+            const ref = await gh(
+              "/repos/" + owner + "/" + repo + "/git/ref/heads/" + branch,
+              { token },
+            );
+            parentSha = ref.object.sha;
+            const commit = await gh(
+              "/repos/" + owner + "/" + repo + "/git/commits/" + parentSha,
+              { token },
+            );
+            baseTree = commit.tree.sha;
+            log("Branch " + branch + " @ " + parentSha.slice(0, 7));
+          } catch {
+            log("Branch empty or missing — creating first commit on " + branch);
+          }
+
+          log("Building tree…");
+          const treeBody = { tree: treeItems };
+          if (baseTree) treeBody.base_tree = baseTree;
+          const tree = await gh("/repos/" + owner + "/" + repo + "/git/trees", {
+            method: "POST",
+            token,
+            body: treeBody,
+          });
+          setProgress(88);
+
+          log("Creating commit…");
+          const commitBody = {
+            message,
+            tree: tree.sha,
+            parents: parentSha ? [parentSha] : [],
+          };
+          const commit = await gh(
+            "/repos/" + owner + "/" + repo + "/git/commits",
+            { method: "POST", token, body: commitBody },
+          );
+          setProgress(94);
+
+          if (parentSha) {
+            log("Updating " + branch + "…");
+            await gh(
+              "/repos/" + owner + "/" + repo + "/git/refs/heads/" + branch,
+              {
+                method: "PATCH",
+                token,
+                body: { sha: commit.sha, force: false },
+              },
+            );
+          } else {
+            log("Creating ref heads/" + branch + "…");
+            try {
+              await gh("/repos/" + owner + "/" + repo + "/git/refs", {
+                method: "POST",
+                token,
+                body: { ref: "refs/heads/" + branch, sha: commit.sha },
+              });
+            } catch (e) {
+              // empty repo sometimes wants main explicitly
+              if (branch !== "main") {
+                await gh("/repos/" + owner + "/" + repo + "/git/refs", {
+                  method: "POST",
+                  token,
+                  body: { ref: "refs/heads/main", sha: commit.sha },
+                });
+              } else {
+                throw e;
+              }
+            }
+          }
+          setProgress(100);
+        }
+
+        log("Done — files are on the existing repo.");
+        const url = "https://github.com/" + owner + "/" + repo;
+        $("repoLink").href = url;
+        $("repoLink").textContent = url;
+        $("done").classList.add("show");
+      } catch (err) {
+        console.error(err);
+        log("ERROR: " + (err.message || String(err)));
+        alert("Upload failed: " + (err.message || String(err)));
+      } finally {
+        btn.disabled = false;
+      }
+    };
+
+    /** Contents API put (create or update) */
+    async function putContent(owner, repo, branch, path, base64, message, token) {
+      let sha;
+      try {
+        const existing = await gh(
+          "/repos/" +
+            owner +
+            "/" +
+            repo +
+            "/contents/" +
+            path
+              .split("/")
+              .map(encodeURIComponent)
+              .join("/") +
+            "?ref=" +
+            encodeURIComponent(branch),
+          { token },
+        );
+        if (existing && existing.sha) sha = existing.sha;
+      } catch {
+        /* new file */
+      }
+      await gh(
+        "/repos/" +
+          owner +
+          "/" +
+          repo +
+          "/contents/" +
+          path
+            .split("/")
+            .map(encodeURIComponent)
+            .join("/"),
+        {
+          method: "PUT",
+          token,
+          body: {
+            message: message + " · " + path,
+            content: base64,
+            branch,
+            ...(sha ? { sha } : {}),
+          },
+        },
+      );
+    }
+
+    $("clear").onclick = () => {
+      zipFile = null;
+      fileInput.value = "";
+      $("fileName").textContent = "";
+      $("log").textContent = "";
+      $("progressWrap").classList.remove("show");
+      $("done").classList.remove("show");
+      setProgress(0);
+    };
+  </script>
+</body>
+</html>
