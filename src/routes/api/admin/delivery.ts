@@ -4,6 +4,7 @@ import {
   listDeliveryAssets,
   upsertDeliveryAsset,
   DELIVERY_SCOPE_PRESETS,
+  deliveryDownloadPath,
 } from "@/lib/server/delivery";
 import {
   json,
@@ -18,7 +19,13 @@ export const Route = createFileRoute("/api/admin/delivery")({
         try {
           await requireAdminFromRequest(request);
           const assets = await listDeliveryAssets();
-          return json({ assets, presets: DELIVERY_SCOPE_PRESETS });
+          return json({
+            assets: assets.map((a) => ({
+              ...a,
+              downloadPath: a.hasFileBlob ? deliveryDownloadPath(a.id) : null,
+            })),
+            presets: DELIVERY_SCOPE_PRESETS,
+          });
         } catch (err) {
           return jsonError(err, 403);
         }
@@ -33,8 +40,14 @@ export const Route = createFileRoute("/api/admin/delivery")({
             tier?: string | null;
             os?: string | null;
             fileUrl?: string | null;
+            externalUrl?: string | null;
             message?: string | null;
             steps?: string | null;
+            instructions?: string | null;
+            fileName?: string | null;
+            fileMime?: string | null;
+            fileData?: string | null;
+            clearFileBlob?: boolean;
             deleteId?: string;
           };
           if (body.deleteId) {
@@ -51,10 +64,21 @@ export const Route = createFileRoute("/api/admin/delivery")({
             tier: body.tier,
             os: body.os,
             fileUrl: body.fileUrl,
+            externalUrl: body.externalUrl ?? body.fileUrl,
             message: body.message,
             steps: body.steps,
+            instructions: body.instructions,
+            fileName: body.fileName,
+            fileMime: body.fileMime,
+            fileData: body.fileData,
+            clearFileBlob: body.clearFileBlob,
           });
-          return json(asset);
+          return json({
+            ...asset,
+            downloadPath: asset.hasFileBlob
+              ? deliveryDownloadPath(asset.id)
+              : null,
+          });
         } catch (err) {
           return jsonError(err, 400);
         }

@@ -33,9 +33,18 @@ export type DeliveryAsset = {
   category: string | null;
   tier: string | null;
   os: string | null;
+  /** External download URL (Dropbox, Drive, CDN, etc.) */
   fileUrl: string | null;
+  /** Alias persisted column for external link (mirrors fileUrl when set). */
+  externalUrl: string | null;
   message: string | null;
   steps: string | null;
+  /** Buyer-facing notes / instructions (admin editable). */
+  instructions: string | null;
+  fileName: string | null;
+  fileMime: string | null;
+  /** True when an uploaded blob is stored server-side. */
+  hasFileBlob: boolean;
   updatedAt?: string;
 };
 
@@ -63,6 +72,10 @@ function rowProject(r: Record<string, unknown>): ServiceProject {
 }
 
 function rowAsset(r: Record<string, unknown>): DeliveryAsset {
+  const external =
+    ((r.external_url as string) ?? null) ||
+    ((r.file_url as string) ?? null) ||
+    null;
   return {
     id: String(r.id),
     scopeKey: String(r.scope_key),
@@ -70,9 +83,14 @@ function rowAsset(r: Record<string, unknown>): DeliveryAsset {
     category: (r.category as string) ?? null,
     tier: (r.tier as string) ?? null,
     os: (r.os as string) ?? null,
-    fileUrl: (r.file_url as string) ?? null,
+    fileUrl: external,
+    externalUrl: (r.external_url as string) ?? null,
     message: (r.message as string) ?? null,
     steps: (r.steps as string) ?? null,
+    instructions: (r.instructions as string) ?? null,
+    fileName: (r.file_name as string) ?? null,
+    fileMime: (r.file_mime as string) ?? null,
+    hasFileBlob: Boolean(r.file_data),
     updatedAt: r.updated_at
       ? new Date(r.updated_at as string).toISOString()
       : undefined,
@@ -181,11 +199,37 @@ export async function updateServiceProject(input: {
 
 export async function listDeliveryAssets(): Promise<DeliveryAsset[]> {
   await ensureStripeTables();
+  await ensureDeliveryExtraColumns();
   const sql = await getSql();
+  // Omit file_data blob from list queries (only flag presence)
   const rows = (await sql`
-    SELECT * FROM delivery_assets ORDER BY scope_key ASC
+    SELECT id, scope_key, label, category, tier, os, file_url, external_url,
+           message, steps, instructions, file_name, file_mime, updated_at,
+           CASE WHEN file_data IS NOT NULL AND length(file_data) > 0 THEN '1' ELSE NULL END AS file_data
+    FROM delivery_assets ORDER BY scope_key ASC
   `) as Array<Record<string, unknown>>;
   return rows.map(rowAsset);
+}
+
+async function ensureDeliveryExtraColumns(): Promise<void> {
+  const sql = await getSql();
+  for (const col of [
+    `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS file_name TEXT`,
+    `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS file_mime TEXT`,
+    `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS file_data TEXT`,
+    `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS instructions TEXT`,
+    `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS external_url TEXT`,
+  ]) {
+    try {
+      await sql.query(col);
+    } catch {
+      try {
+        await sql.query(col.replace(" IF NOT EXISTS", ""));
+      } catch {
+        /* exists */
+      }
+    }
+  }
 }
 
 export async function upsertDeliveryAsset(input: {
@@ -195,29 +239,79 @@ export async function upsertDeliveryAsset(input: {
   tier?: string | null;
   os?: string | null;
   fileUrl?: string | null;
+  externalUrl?: string | null;
   message?: string | null;
   steps?: string | null;
+  instructions?: string | null;
+  fileName?: string | null;
+  fileMime?: string | null;
+  /** Base64 (optionally data-URL) app file upload — stored server-side only. */
+  fileData?: string | null;
+  clearFileBlob?: boolean;
 }): Promise<DeliveryAsset> {
   await ensureStripeTables();
+  await ensureDeliveryExtraColumns();
   const sql = await getSql();
   const scope = input.scopeKey.trim().toLowerCase();
+  const external =
+    (input.externalUrl?.trim() || input.fileUrl?.trim() || null) ?? null;
   const existing = (await sql`
     SELECT id FROM delivery_assets WHERE scope_key = ${scope} LIMIT 1
   `) as Array<{ id: string }>;
 
+  let fileData: string | null | undefined = undefined;
+  if (input.clearFileBlob) {
+    fileData = null;
+  } else if (input.fileData !== undefined) {
+    // Strip data-URL prefix if present; cap ~40MB base64 (~30MB binary)
+    let raw = input.fileData?.trim() || null;
+    if (raw?.startsWith("data:")) {
+      const idx = raw.indexOf("base64,");
+      raw = idx >= 0 ? raw.slice(idx + 7) : raw;
+    }
+    if (raw && raw.length > 55_000_000) {
+      throw new Error("Uploaded file too large (max ~40MB). Use an external download link instead.");
+    }
+    fileData = raw;
+  }
+
   if (existing[0]?.id) {
-    await sql`
-      UPDATE delivery_assets SET
-        label = ${input.label.trim()},
-        category = ${input.category ?? null},
-        tier = ${input.tier ?? null},
-        os = ${input.os ?? null},
-        file_url = ${input.fileUrl ?? null},
-        message = ${input.message ?? null},
-        steps = ${input.steps ?? null},
-        updated_at = now()
-      WHERE id = ${existing[0].id}
-    `;
+    if (fileData !== undefined) {
+      await sql`
+        UPDATE delivery_assets SET
+          label = ${input.label.trim()},
+          category = ${input.category ?? null},
+          tier = ${input.tier ?? null},
+          os = ${input.os ?? null},
+          file_url = ${external},
+          external_url = ${external},
+          message = ${input.message ?? null},
+          steps = ${input.steps ?? null},
+          instructions = ${input.instructions ?? null},
+          file_name = ${input.fileName ?? null},
+          file_mime = ${input.fileMime ?? null},
+          file_data = ${fileData},
+          updated_at = now()
+        WHERE id = ${existing[0].id}
+      `;
+    } else {
+      await sql`
+        UPDATE delivery_assets SET
+          label = ${input.label.trim()},
+          category = ${input.category ?? null},
+          tier = ${input.tier ?? null},
+          os = ${input.os ?? null},
+          file_url = ${external},
+          external_url = ${external},
+          message = ${input.message ?? null},
+          steps = ${input.steps ?? null},
+          instructions = ${input.instructions ?? null},
+          file_name = COALESCE(${input.fileName ?? null}, file_name),
+          file_mime = COALESCE(${input.fileMime ?? null}, file_mime),
+          updated_at = now()
+        WHERE id = ${existing[0].id}
+      `;
+    }
     const rows = (await sql`
       SELECT * FROM delivery_assets WHERE id = ${existing[0].id} LIMIT 1
     `) as Array<Record<string, unknown>>;
@@ -227,17 +321,37 @@ export async function upsertDeliveryAsset(input: {
   const id = uid("del");
   await sql`
     INSERT INTO delivery_assets (
-      id, scope_key, label, category, tier, os, file_url, message, steps
+      id, scope_key, label, category, tier, os, file_url, external_url,
+      message, steps, instructions, file_name, file_mime, file_data
     ) VALUES (
       ${id}, ${scope}, ${input.label.trim()},
       ${input.category ?? null}, ${input.tier ?? null}, ${input.os ?? null},
-      ${input.fileUrl ?? null}, ${input.message ?? null}, ${input.steps ?? null}
+      ${external}, ${external},
+      ${input.message ?? null}, ${input.steps ?? null}, ${input.instructions ?? null},
+      ${input.fileName ?? null}, ${input.fileMime ?? null}, ${fileData ?? null}
     )
   `;
   const rows = (await sql`
     SELECT * FROM delivery_assets WHERE id = ${id} LIMIT 1
   `) as Array<Record<string, unknown>>;
   return rowAsset(rows[0]!);
+}
+
+export async function getDeliveryAssetById(
+  id: string,
+): Promise<(DeliveryAsset & { fileData: string | null }) | null> {
+  await ensureStripeTables();
+  await ensureDeliveryExtraColumns();
+  const sql = await getSql();
+  const rows = (await sql`
+    SELECT * FROM delivery_assets WHERE id = ${id} LIMIT 1
+  `) as Array<Record<string, unknown>>;
+  if (!rows[0]) return null;
+  const base = rowAsset(rows[0]);
+  return {
+    ...base,
+    fileData: (rows[0].file_data as string) ?? null,
+  };
 }
 
 export async function deleteDeliveryAsset(id: string): Promise<void> {
@@ -315,5 +429,26 @@ export const DELIVERY_SCOPE_PRESETS = [
   { scopeKey: "act-premium-windows", label: "ACT Premium · Windows" },
   { scopeKey: "act-all-macos", label: "All ACT · macOS (universal file)" },
   { scopeKey: "act-all-windows", label: "All ACT · Windows (universal file)" },
+  { scopeKey: "gmat-standard-macos", label: "GMAT Standard · macOS" },
+  { scopeKey: "gmat-standard-windows", label: "GMAT Standard · Windows" },
+  { scopeKey: "gmat-pro-macos", label: "GMAT Pro · macOS" },
+  { scopeKey: "gmat-pro-windows", label: "GMAT Pro · Windows" },
+  { scopeKey: "gmat-premium-macos", label: "GMAT Premium · macOS" },
+  { scopeKey: "gmat-premium-windows", label: "GMAT Premium · Windows" },
+  { scopeKey: "gmat-all-macos", label: "All GMAT · macOS" },
+  { scopeKey: "gmat-all-windows", label: "All GMAT · Windows" },
+  { scopeKey: "gre-standard-macos", label: "GRE Standard · macOS" },
+  { scopeKey: "gre-standard-windows", label: "GRE Standard · Windows" },
+  { scopeKey: "gre-pro-macos", label: "GRE Pro · macOS" },
+  { scopeKey: "gre-pro-windows", label: "GRE Pro · Windows" },
+  { scopeKey: "gre-premium-macos", label: "GRE Premium · macOS" },
+  { scopeKey: "gre-premium-windows", label: "GRE Premium · Windows" },
+  { scopeKey: "gre-all-macos", label: "All GRE · macOS" },
+  { scopeKey: "gre-all-windows", label: "All GRE · Windows" },
   { scopeKey: "proctor-universal", label: "All proctor tools · steps/file" },
 ] as const;
+
+/** Public download path for an uploaded delivery blob (no secrets). */
+export function deliveryDownloadPath(assetId: string): string {
+  return `/api/delivery/file/${assetId}`;
+}

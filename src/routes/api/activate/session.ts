@@ -71,6 +71,9 @@ export const Route = createFileRoute("/api/activate/session")({
             fileUrl: string | null;
             message: string | null;
             steps: string | null;
+            instructions?: string | null;
+            fileName?: string | null;
+            hasUpload?: boolean;
           }> = [];
           if (machines[0]) {
             const m = machines[0];
@@ -85,9 +88,14 @@ export const Route = createFileRoute("/api/activate/session")({
             });
             delivery = assets.map((a) => ({
               label: a.label,
-              fileUrl: a.fileUrl,
+              fileUrl: a.hasFileBlob
+                ? `/api/delivery/file/${a.id}`
+                : a.fileUrl || a.externalUrl,
               message: a.message,
               steps: a.steps,
+              instructions: a.instructions,
+              fileName: a.fileName,
+              hasUpload: a.hasFileBlob,
             }));
           } else if (classification.flow === "proctor_serial") {
             const assets = await resolveDeliveryAssets({
@@ -96,9 +104,33 @@ export const Route = createFileRoute("/api/activate/session")({
             });
             delivery = assets.map((a) => ({
               label: a.label,
-              fileUrl: a.fileUrl,
+              fileUrl: a.hasFileBlob
+                ? `/api/delivery/file/${a.id}`
+                : a.fileUrl || a.externalUrl,
               message: a.message,
               steps: a.steps,
+              instructions: a.instructions,
+              fileName: a.fileName,
+              hasUpload: a.hasFileBlob,
+            }));
+          } else if (classification.flow === "os_serial") {
+            // Pre-show delivery for exam products even before serial (download after activate)
+            const assets = await resolveDeliveryAssets({
+              productKey: payment.productKey,
+              exam: classification.exam,
+              tier: classification.tier || tierFromKey(payment.productKey, classification),
+              kind: classification.kind,
+            });
+            delivery = assets.map((a) => ({
+              label: a.label,
+              fileUrl: a.hasFileBlob
+                ? `/api/delivery/file/${a.id}`
+                : a.fileUrl || a.externalUrl,
+              message: a.message,
+              steps: a.steps,
+              instructions: a.instructions,
+              fileName: a.fileName,
+              hasUpload: a.hasFileBlob,
             }));
           }
 
@@ -132,6 +164,7 @@ export const Route = createFileRoute("/api/activate/session")({
               status: m.status,
               os: m.os,
               productKey: m.productKey,
+              authCode: m.sessionToken,
             })),
             delivery,
           });
@@ -148,7 +181,7 @@ export const Route = createFileRoute("/api/activate/session")({
             action?: "register_serial" | "create_project";
             os?: "macos" | "windows";
             serial?: string;
-            exam?: "sat" | "act";
+            exam?: "sat" | "act" | "gmat" | "gre";
             keyName?: string;
             contactMethod?: string;
             contactValue?: string;
@@ -239,9 +272,13 @@ export const Route = createFileRoute("/api/activate/session")({
             classification.exam ||
             (productKey.startsWith("act")
               ? "act"
-              : productKey.startsWith("sat")
-                ? "sat"
-                : null);
+              : productKey.startsWith("gmat")
+                ? "gmat"
+                : productKey.startsWith("gre")
+                  ? "gre"
+                  : productKey.startsWith("sat")
+                    ? "sat"
+                    : null);
           const tier = tierFromKey(productKey, classification);
 
           const note = `Serial stored as SHA-256 only\nOS: ${os}\nProduct: ${productKey}\nSource: stripe (auto-active)`;
@@ -283,6 +320,14 @@ export const Route = createFileRoute("/api/activate/session")({
             kind: classification.kind,
           });
 
+          // Ensure buyer gets a fresh auth code (session token) for the daemon
+          let authCode = machine.sessionToken;
+          if (!authCode) {
+            const { regenerateToken } = await import("@/lib/server/whitelist");
+            const refreshed = await regenerateToken(machine.id);
+            authCode = refreshed.sessionToken;
+          }
+
           return json({
             ok: true,
             machine: {
@@ -292,11 +337,17 @@ export const Route = createFileRoute("/api/activate/session")({
               os,
               productKey,
             },
+            authCode,
             delivery: assets.map((a) => ({
               label: a.label,
-              fileUrl: a.fileUrl,
+              fileUrl: a.hasFileBlob
+                ? `/api/delivery/file/${a.id}`
+                : a.fileUrl || a.externalUrl,
               message: a.message,
               steps: a.steps,
+              instructions: a.instructions,
+              fileName: a.fileName,
+              hasUpload: a.hasFileBlob,
             })),
             remainingSerials: Math.max(
               0,

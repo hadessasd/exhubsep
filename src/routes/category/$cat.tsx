@@ -10,6 +10,8 @@ import {
 const VALID: ProductCategory[] = [
   "sat",
   "act",
+  "gmat",
+  "gre",
   "proctoring",
   "bundle",
   "contests",

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   Copy,
   Check,
+  CreditCard,
   ExternalLink,
   Gift,
   QrCode,
@@ -26,11 +27,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { createOrder } from "@/lib/server/examhub";
 import { toast } from "sonner";
+import { StripePaymentCheckout } from "@/components/checkout/stripe-payment-link";
 
 const CART_KEY = "examhub.checkout_history";
 const LAST_KEY = "examhub.last_checkout";
 
-type PayTab = "crypto" | "gift";
+type PayTab = "stripe" | "crypto" | "gift";
 
 type Prices = Partial<Record<CryptoAssetId, number>>;
 
@@ -107,7 +109,7 @@ function paymentUri(asset: (typeof CRYPTO_ASSETS)[CryptoAssetId], amount: number
 export function CheckoutForm({ product }: { product: Product }) {
   const { user } = useCurrentUserState();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<PayTab>("crypto");
+  const [tab, setTab] = useState<PayTab>("stripe");
   const [coin, setCoin] = useState<CryptoAssetId>("sol");
   const [prices, setPrices] = useState<Prices>({});
   const [priceAt, setPriceAt] = useState<number | null>(null);
@@ -216,12 +218,24 @@ export function CheckoutForm({ product }: { product: Product }) {
           Pay {formatUsd(product.priceUsd)}
         </CardTitle>
         <p className="text-sm text-fg-muted">
-          Crypto on-chain or a G2A crypto voucher. After you submit, the order
-          stays <strong>pending</strong> until admin confirms and completes it.
+          Prefer <strong>Stripe</strong> for instant activation (auth code + app
+          download). Crypto / G2A stay pending until admin confirms.
         </p>
       </CardHeader>
       <CardContent className="min-w-0 space-y-5 px-4 sm:px-6">
         <div className="flex gap-1 rounded-xl border border-border bg-bg-soft p-1">
+          <button
+            type="button"
+            onClick={() => setTab("stripe")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              tab === "stripe"
+                ? "bg-primary text-primary-fg shadow"
+                : "text-fg-muted hover:bg-surface"
+            }`}
+          >
+            <CreditCard className="h-4 w-4" />
+            Stripe
+          </button>
           <button
             type="button"
             onClick={() => setTab("crypto")}
@@ -248,7 +262,9 @@ export function CheckoutForm({ product }: { product: Product }) {
           </button>
         </div>
 
-        {tab === "crypto" ? (
+        {tab === "stripe" ? (
+          <StripePaymentCheckout product={product} />
+        ) : tab === "crypto" ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(Object.values(CRYPTO_ASSETS) as Array<(typeof CRYPTO_ASSETS)[CryptoAssetId]>).map(
@@ -380,6 +396,7 @@ export function CheckoutForm({ product }: { product: Product }) {
           </div>
         )}
 
+        {tab !== "stripe" ? (
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -468,6 +485,13 @@ export function CheckoutForm({ product }: { product: Product }) {
             see status on My dashboard.
           </p>
         </form>
+        ) : (
+          <p className="flex items-start gap-2 text-xs text-muted">
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Stripe payments are verified by webhook. You&apos;ll get an auth
+            code and download on the activate page after checkout.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

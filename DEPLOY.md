@@ -24,14 +24,42 @@ Upload the repo root to GitHub (all files from this package). Do **not** upload 
 
 Optional: `SERIAL_ENCRYPTION_KEY` (defaults to auth secret).
 
-## Stripe (live)
+## Stripe Payment Links (tier → URL)
 
-1. Buy Button **success URL:**  
+Preferred checkout uses **Payment Links** (`buy.stripe.com`), not ad-hoc Checkout Sessions.
+
+| Tier | Price | Payment Link |
+|------|-------|--------------|
+| Standard | $190 | `https://buy.stripe.com/8x27sL3mm6ht9k1eqY83C03` |
+| Pro | $450 | `https://buy.stripe.com/6oUeVdbSSaxJdAhbeM83C00` |
+| Premium | $890 | `https://buy.stripe.com/00w3cv7CC8pB9k12Ig83C02` |
+
+- **SAT / ACT** products use the tier links above. Checkout appends `client_reference_id=<product-id>` (e.g. `sat-pro`, `act-premium`) so the webhook + `/activate` map the purchase.
+- **GMAT / GRE** Standard · Pro · Premium ship with **empty** Payment Link placeholders. Paste live `buy.stripe.com` URLs in **Admin → Delivery → Payment Links** (no fake URLs in the client bundle).
+- Buy Button IDs remain as a fallback when a Payment Link is missing.
+
+### Stripe Dashboard
+
+1. Payment Link / Buy Button **success URL:**  
    `https://www.examhub.shop/activate?session_id={CHECKOUT_SESSION_ID}`
 2. Webhook endpoint:  
    `https://www.examhub.shop/api/stripe/webhook`  
    Event: `checkout.session.completed`
-3. Client reference IDs: `standard` / `pro` / `premium` / `research` / `internship`
+3. Client reference IDs: `sat-standard` / `sat-pro` / `sat-premium` / `act-*` / `gmat-*` / `gre-*` / `research` / `internship`
+
+## Post-payment
+
+1. Webhook (or activate fallback with `STRIPE_SECRET_KEY`) marks the session paid.
+2. Buyer opens `/activate`, picks OS, enters machine serial → auto-whitelist **active**.
+3. UI shows **auth code** (machine session token) + **app download** (admin delivery file upload and/or external link + instructions).
+
+## Admin delivery
+
+**Admin → Delivery**
+
+- Per product/tier/OS scope: upload app file **and/or** set external download URL + buyer instructions / steps.
+- GMAT/GRE Payment Links: paste when ready.
+- Uploaded files are stored server-side and served at `/api/delivery/file/:id` (no secrets in the client bundle).
 
 ## Daemon machine auth
 

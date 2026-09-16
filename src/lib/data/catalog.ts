@@ -1,7 +1,13 @@
-import { STRIPE_BUY_BUTTONS, stripeButtonForTier } from "./stripe";
+import {
+  STRIPE_BUY_BUTTONS,
+  stripeButtonForTier,
+  stripePaymentLinkForTier,
+} from "./stripe";
 export type ProductCategory =
   | "sat"
   | "act"
+  | "gmat"
+  | "gre"
   | "proctoring"
   | "bundle"
   | "contests"
@@ -23,8 +29,14 @@ export interface Product {
   features: string[];
   regions?: string[];
   giftCardUrl?: string;
-  /** When set, checkout uses Stripe Buy Button only (no crypto). */
+  /** When set, checkout uses Stripe Buy Button (fallback). */
   stripeBuyButtonId?: string;
+  /**
+   * Preferred Stripe Payment Link (buy.stripe.com).
+   * Empty string = placeholder (GMAT/GRE until admin configures).
+   * Undefined = derive from tier defaults (SAT/ACT).
+   */
+  stripePaymentLinkUrl?: string;
   badge?: string;
   seoTitle: string;
   seoDescription: string;
@@ -274,17 +286,101 @@ function powerSeoDesc(name: string, short: string, price: number): string {
   );
 }
 
+const GMAT_FEATURES = {
+  standard: [
+    "AI-assisted GMAT Focus practice",
+    "Normal sandbox environment",
+    "Quant · Verbal · Data Insights coverage",
+    "Score tracking dashboard",
+    "Email support within 24h",
+  ],
+  pro: [
+    "Everything in Standard",
+    "High-score GMAT Focus pathway",
+    "Enhanced sandbox isolation",
+    "Adaptive Data Insights modules",
+    "Priority live support",
+    "Full-length timed simulations",
+  ],
+  premium: [
+    "Everything in Pro",
+    "Top-score GMAT Focus pathway",
+    "Maximum-security sandbox stack",
+    "1:1 strategy coaching session",
+    "Unlimited retake practice packs",
+    "Same-day support SLA",
+    "Post-exam review kit",
+  ],
+} as const;
+
+const GRE_FEATURES = {
+  standard: [
+    "AI-assisted GRE General practice",
+    "Normal sandbox environment",
+    "Quant · Verbal · AWA coverage",
+    "Score tracking dashboard",
+    "Email support within 24h",
+  ],
+  pro: [
+    "Everything in Standard",
+    "High-score GRE pathway",
+    "Enhanced sandbox isolation",
+    "Adaptive Quant/Verbal modules",
+    "Priority live support",
+    "Full-length timed simulations",
+  ],
+  premium: [
+    "Everything in Pro",
+    "Top-score GRE pathway",
+    "Maximum-security sandbox stack",
+    "1:1 strategy coaching session",
+    "Unlimited retake practice packs",
+    "Same-day support SLA",
+    "Post-exam review kit",
+  ],
+} as const;
+
+type ExamFamily = "sat" | "act" | "gmat" | "gre";
+
+function examFeatures(exam: ExamFamily, tier: ProductTier): string[] {
+  if (exam === "sat") return [...SAT_FEATURES[tier]];
+  if (exam === "act") return [...ACT_FEATURES[tier]];
+  if (exam === "gmat") return [...GMAT_FEATURES[tier]];
+  return [...GRE_FEATURES[tier]];
+}
+
+function examScoreLabel(exam: ExamFamily): string {
+  if (exam === "sat") return "1600";
+  if (exam === "act") return "36";
+  if (exam === "gmat") return "705+";
+  return "330+";
+}
+
+/**
+ * Stripe Payment Link for a product.
+ * SAT/ACT tiers use the shared live buy.stripe.com links.
+ * GMAT/GRE default to empty placeholders (admin configures via payment links panel).
+ */
+export function defaultPaymentLinkForProduct(
+  exam: ExamFamily,
+  tier: ProductTier,
+): string {
+  if (exam === "gmat" || exam === "gre") return "";
+  return stripePaymentLinkForTier(tier) ?? "";
+}
+
 function examProduct(
-  exam: "sat" | "act",
+  exam: ExamFamily,
   tier: ProductTier,
   price: number,
   giftKey: keyof typeof GIFT_CARD_LINKS,
 ): Product {
   const label = exam.toUpperCase();
-  const features = exam === "sat" ? SAT_FEATURES[tier] : ACT_FEATURES[tier];
+  const features = examFeatures(exam, tier);
   const tierLabel = tier[0]!.toUpperCase() + tier.slice(1);
-  const score = exam === "sat" ? "1600" : "36";
+  const score = examScoreLabel(exam);
   const name = `${label} ${tierLabel}`;
+  const paymentLink = defaultPaymentLinkForProduct(exam, tier);
   return {
     id: `${exam}-${tier}`,
     slug: `${exam}-${tier}`,
@@ -306,7 +402,9 @@ function examProduct(
           : `ExamHub ${label} Premium is the flagship stack: maximum sandbox security, guaranteed top-score pathway, 1:1 coaching, unlimited practice, and same-day support.`,
     features: [...features],
     giftCardUrl: GIFT_CARD_LINKS[giftKey],
-    stripeBuyButtonId: stripeButtonForTier(tier),
+    stripeBuyButtonId:
+      exam === "gmat" || exam === "gre" ? undefined : stripeButtonForTier(tier),
+    stripePaymentLinkUrl: paymentLink,
     badge:
       tier === "premium" ? "Best results" : tier === "pro" ? "Most popular" : undefined,
     seoTitle: powerSeoTitle(
@@ -360,6 +458,7 @@ function makeTool(
     regions: opts?.regions,
     giftCardUrl: GIFT_CARD_LINKS[opts?.giftKey ?? "tool"],
     stripeBuyButtonId: STRIPE_BUY_BUTTONS.standard,
+    stripePaymentLinkUrl: stripePaymentLinkForTier("standard") ?? "",
     badge: opts?.badge,
     seoTitle: powerSeoTitle(name, price, category === "proctoring" ? "Proctor Support" : category === "contests" ? "Contest Prep" : "Exam Tool"),
     seoDescription: powerSeoDesc(name, shortDescription, price),
@@ -513,6 +612,12 @@ export const PRODUCTS: Product[] = [
   examProduct("act", "standard", 190, "standard"),
   examProduct("act", "pro", 450, "pro"),
   examProduct("act", "premium", 890, "premium"),
+  examProduct("gmat", "standard", 190, "standard"),
+  examProduct("gmat", "pro", 450, "pro"),
+  examProduct("gmat", "premium", 890, "premium"),
+  examProduct("gre", "standard", 190, "standard"),
+  examProduct("gre", "pro", 450, "pro"),
+  examProduct("gre", "premium", 890, "premium"),
   {
     id: "bundle-pro-sat-act-lockdown",
     slug: "bundle-pro-sat-act-lockdown",
@@ -531,6 +636,7 @@ export const PRODUCTS: Product[] = [
     ],
     giftCardUrl: GIFT_CARD_LINKS.bundle,
     stripeBuyButtonId: STRIPE_BUY_BUTTONS.standard,
+    stripePaymentLinkUrl: stripePaymentLinkForTier("standard") ?? "",
     badge: "Standard $190",
     seoTitle: powerSeoTitle(
       "SAT ACT LockDown Bundle",
@@ -702,6 +808,18 @@ export const CATEGORIES: {
     label: "ACT",
     description: "Standard · Pro · Premium pathways",
     href: "/category/act",
+  },
+  {
+    id: "gmat",
+    label: "GMAT",
+    description: "Standard · Pro · Premium — Payment Links configurable",
+    href: "/category/gmat",
+  },
+  {
+    id: "gre",
+    label: "GRE",
+    description: "Standard · Pro · Premium — Payment Links configurable",
+    href: "/category/gre",
   },
   {
     id: "proctoring",

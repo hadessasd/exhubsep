@@ -27,18 +27,23 @@ import { Route as ProductsSlugRouteImport } from './routes/products/$slug'
 import { Route as ProgressTokenRouteImport } from './routes/progress.$token'
 import { Route as ApiActivateSessionRouteImport } from './routes/api/activate/session'
 import { Route as ApiAdminDeliveryRouteImport } from './routes/api/admin/delivery'
+import { Route as ApiAdminPaymentLinksRouteImport } from './routes/api/admin/payment-links'
 import { Route as ApiAdminProjectsRouteImport } from './routes/api/admin/projects'
 import { Route as ApiAdminSimulateRouteImport } from './routes/api/admin/simulate'
 import { Route as ApiAuthIndexRouteImport } from './routes/api/auth/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiPaymentLinksSlugRouteImport } from './routes/api/payment-links/$slug'
 import { Route as ApiProgressTokenRouteImport } from './routes/api/progress/$token'
+import { Route as ApiRerouteOpenrouterRouteImport } from './routes/api/reroute/openrouter'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiWhitelistRequestRouteImport } from './routes/api/whitelist/request'
 import { Route as ApiWhitelistVerifyRouteImport } from './routes/api/whitelist/verify'
+import { Route as ApiAdminRerouteLogsRouteImport } from './routes/api/admin/reroute/logs'
 import { Route as ApiAdminWhitelistExportRouteImport } from './routes/api/admin/whitelist/export'
 import { Route as ApiAdminWhitelistImportRouteImport } from './routes/api/admin/whitelist/import'
 import { Route as ApiAdminWhitelistJsonRouteImport } from './routes/api/admin/whitelist/json'
 import { Route as ApiAdminWhitelistMachinesRouteImport } from './routes/api/admin/whitelist/machines'
+import { Route as ApiDeliveryFileIdRouteImport } from './routes/api/delivery/file.$id'
 import { Route as ApiAdminWhitelistMachinesIdRouteImport } from './routes/api/admin/whitelist/machines.$id'
 import { Route as ApiAdminWhitelistMachinesIdRegenerateTokenRouteImport } from './routes/api/admin/whitelist/machines.$id.regenerate-token'
 
@@ -132,6 +137,11 @@ const ApiAdminDeliveryRoute = ApiAdminDeliveryRouteImport.update({
   path: '/api/admin/delivery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminPaymentLinksRoute = ApiAdminPaymentLinksRouteImport.update({
+  id: '/api/admin/payment-links',
+  path: '/api/admin/payment-links',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminProjectsRoute = ApiAdminProjectsRouteImport.update({
   id: '/api/admin/projects',
   path: '/api/admin/projects',
@@ -152,9 +162,19 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPaymentLinksSlugRoute = ApiPaymentLinksSlugRouteImport.update({
+  id: '/api/payment-links/$slug',
+  path: '/api/payment-links/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProgressTokenRoute = ApiProgressTokenRouteImport.update({
   id: '/api/progress/$token',
   path: '/api/progress/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRerouteOpenrouterRoute = ApiRerouteOpenrouterRouteImport.update({
+  id: '/api/reroute/openrouter',
+  path: '/api/reroute/openrouter',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
@@ -170,6 +190,11 @@ const ApiWhitelistRequestRoute = ApiWhitelistRequestRouteImport.update({
 const ApiWhitelistVerifyRoute = ApiWhitelistVerifyRouteImport.update({
   id: '/api/whitelist/verify',
   path: '/api/whitelist/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminRerouteLogsRoute = ApiAdminRerouteLogsRouteImport.update({
+  id: '/api/admin/reroute/logs',
+  path: '/api/admin/reroute/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminWhitelistExportRoute = ApiAdminWhitelistExportRouteImport.update({
@@ -193,6 +218,11 @@ const ApiAdminWhitelistMachinesRoute =
     path: '/api/admin/whitelist/machines',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiDeliveryFileIdRoute = ApiDeliveryFileIdRouteImport.update({
+  id: '/api/delivery/file/$id',
+  path: '/api/delivery/file/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminWhitelistMachinesIdRoute =
   ApiAdminWhitelistMachinesIdRouteImport.update({
     id: '/$id',
@@ -225,18 +255,23 @@ export interface FileRoutesByFullPath {
   '/blog/': typeof BlogIndexRoute
   '/api/activate/session': typeof ApiActivateSessionRoute
   '/api/admin/delivery': typeof ApiAdminDeliveryRoute
+  '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/payment-links/$slug': typeof ApiPaymentLinksSlugRoute
   '/api/progress/$token': typeof ApiProgressTokenRoute
+  '/api/reroute/openrouter': typeof ApiRerouteOpenrouterRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/whitelist/request': typeof ApiWhitelistRequestRoute
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth/': typeof ApiAuthIndexRoute
+  '/api/admin/reroute/logs': typeof ApiAdminRerouteLogsRoute
   '/api/admin/whitelist/export': typeof ApiAdminWhitelistExportRoute
   '/api/admin/whitelist/import': typeof ApiAdminWhitelistImportRoute
   '/api/admin/whitelist/json': typeof ApiAdminWhitelistJsonRoute
   '/api/admin/whitelist/machines': typeof ApiAdminWhitelistMachinesRouteWithChildren
+  '/api/delivery/file/$id': typeof ApiDeliveryFileIdRoute
   '/api/admin/whitelist/machines/$id': typeof ApiAdminWhitelistMachinesIdRouteWithChildren
   '/api/admin/whitelist/machines/$id/regenerate-token': typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
 }
@@ -259,18 +294,23 @@ export interface FileRoutesByTo {
   '/blog': typeof BlogIndexRoute
   '/api/activate/session': typeof ApiActivateSessionRoute
   '/api/admin/delivery': typeof ApiAdminDeliveryRoute
+  '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/payment-links/$slug': typeof ApiPaymentLinksSlugRoute
   '/api/progress/$token': typeof ApiProgressTokenRoute
+  '/api/reroute/openrouter': typeof ApiRerouteOpenrouterRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/whitelist/request': typeof ApiWhitelistRequestRoute
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth': typeof ApiAuthIndexRoute
+  '/api/admin/reroute/logs': typeof ApiAdminRerouteLogsRoute
   '/api/admin/whitelist/export': typeof ApiAdminWhitelistExportRoute
   '/api/admin/whitelist/import': typeof ApiAdminWhitelistImportRoute
   '/api/admin/whitelist/json': typeof ApiAdminWhitelistJsonRoute
   '/api/admin/whitelist/machines': typeof ApiAdminWhitelistMachinesRouteWithChildren
+  '/api/delivery/file/$id': typeof ApiDeliveryFileIdRoute
   '/api/admin/whitelist/machines/$id': typeof ApiAdminWhitelistMachinesIdRouteWithChildren
   '/api/admin/whitelist/machines/$id/regenerate-token': typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
 }
@@ -294,18 +334,23 @@ export interface FileRoutesById {
   '/blog/': typeof BlogIndexRoute
   '/api/activate/session': typeof ApiActivateSessionRoute
   '/api/admin/delivery': typeof ApiAdminDeliveryRoute
+  '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/payment-links/$slug': typeof ApiPaymentLinksSlugRoute
   '/api/progress/$token': typeof ApiProgressTokenRoute
+  '/api/reroute/openrouter': typeof ApiRerouteOpenrouterRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/whitelist/request': typeof ApiWhitelistRequestRoute
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth/': typeof ApiAuthIndexRoute
+  '/api/admin/reroute/logs': typeof ApiAdminRerouteLogsRoute
   '/api/admin/whitelist/export': typeof ApiAdminWhitelistExportRoute
   '/api/admin/whitelist/import': typeof ApiAdminWhitelistImportRoute
   '/api/admin/whitelist/json': typeof ApiAdminWhitelistJsonRoute
   '/api/admin/whitelist/machines': typeof ApiAdminWhitelistMachinesRouteWithChildren
+  '/api/delivery/file/$id': typeof ApiDeliveryFileIdRoute
   '/api/admin/whitelist/machines/$id': typeof ApiAdminWhitelistMachinesIdRouteWithChildren
   '/api/admin/whitelist/machines/$id/regenerate-token': typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
 }
@@ -330,18 +375,23 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/api/activate/session'
     | '/api/admin/delivery'
+    | '/api/admin/payment-links'
     | '/api/admin/projects'
     | '/api/admin/simulate'
     | '/api/auth/$'
+    | '/api/payment-links/$slug'
     | '/api/progress/$token'
+    | '/api/reroute/openrouter'
     | '/api/stripe/webhook'
     | '/api/whitelist/request'
     | '/api/whitelist/verify'
     | '/api/auth/'
+    | '/api/admin/reroute/logs'
     | '/api/admin/whitelist/export'
     | '/api/admin/whitelist/import'
     | '/api/admin/whitelist/json'
     | '/api/admin/whitelist/machines'
+    | '/api/delivery/file/$id'
     | '/api/admin/whitelist/machines/$id'
     | '/api/admin/whitelist/machines/$id/regenerate-token'
   fileRoutesByTo: FileRoutesByTo
@@ -364,18 +414,23 @@ export interface FileRouteTypes {
     | '/blog'
     | '/api/activate/session'
     | '/api/admin/delivery'
+    | '/api/admin/payment-links'
     | '/api/admin/projects'
     | '/api/admin/simulate'
     | '/api/auth/$'
+    | '/api/payment-links/$slug'
     | '/api/progress/$token'
+    | '/api/reroute/openrouter'
     | '/api/stripe/webhook'
     | '/api/whitelist/request'
     | '/api/whitelist/verify'
     | '/api/auth'
+    | '/api/admin/reroute/logs'
     | '/api/admin/whitelist/export'
     | '/api/admin/whitelist/import'
     | '/api/admin/whitelist/json'
     | '/api/admin/whitelist/machines'
+    | '/api/delivery/file/$id'
     | '/api/admin/whitelist/machines/$id'
     | '/api/admin/whitelist/machines/$id/regenerate-token'
   id:
@@ -398,18 +453,23 @@ export interface FileRouteTypes {
     | '/blog/'
     | '/api/activate/session'
     | '/api/admin/delivery'
+    | '/api/admin/payment-links'
     | '/api/admin/projects'
     | '/api/admin/simulate'
     | '/api/auth/$'
+    | '/api/payment-links/$slug'
     | '/api/progress/$token'
+    | '/api/reroute/openrouter'
     | '/api/stripe/webhook'
     | '/api/whitelist/request'
     | '/api/whitelist/verify'
     | '/api/auth/'
+    | '/api/admin/reroute/logs'
     | '/api/admin/whitelist/export'
     | '/api/admin/whitelist/import'
     | '/api/admin/whitelist/json'
     | '/api/admin/whitelist/machines'
+    | '/api/delivery/file/$id'
     | '/api/admin/whitelist/machines/$id'
     | '/api/admin/whitelist/machines/$id/regenerate-token'
   fileRoutesById: FileRoutesById
@@ -433,18 +493,23 @@ export interface RootRouteChildren {
   BlogIndexRoute: typeof BlogIndexRoute
   ApiActivateSessionRoute: typeof ApiActivateSessionRoute
   ApiAdminDeliveryRoute: typeof ApiAdminDeliveryRoute
+  ApiAdminPaymentLinksRoute: typeof ApiAdminPaymentLinksRoute
   ApiAdminProjectsRoute: typeof ApiAdminProjectsRoute
   ApiAdminSimulateRoute: typeof ApiAdminSimulateRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiPaymentLinksSlugRoute: typeof ApiPaymentLinksSlugRoute
   ApiProgressTokenRoute: typeof ApiProgressTokenRoute
+  ApiRerouteOpenrouterRoute: typeof ApiRerouteOpenrouterRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiWhitelistRequestRoute: typeof ApiWhitelistRequestRoute
   ApiWhitelistVerifyRoute: typeof ApiWhitelistVerifyRoute
   ApiAuthIndexRoute: typeof ApiAuthIndexRoute
+  ApiAdminRerouteLogsRoute: typeof ApiAdminRerouteLogsRoute
   ApiAdminWhitelistExportRoute: typeof ApiAdminWhitelistExportRoute
   ApiAdminWhitelistImportRoute: typeof ApiAdminWhitelistImportRoute
   ApiAdminWhitelistJsonRoute: typeof ApiAdminWhitelistJsonRoute
   ApiAdminWhitelistMachinesRoute: typeof ApiAdminWhitelistMachinesRouteWithChildren
+  ApiDeliveryFileIdRoute: typeof ApiDeliveryFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -575,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminDeliveryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/payment-links': {
+      id: '/api/admin/payment-links'
+      path: '/api/admin/payment-links'
+      fullPath: '/api/admin/payment-links'
+      preLoaderRoute: typeof ApiAdminPaymentLinksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/projects': {
       id: '/api/admin/projects'
       path: '/api/admin/projects'
@@ -603,11 +675,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/payment-links/$slug': {
+      id: '/api/payment-links/$slug'
+      path: '/api/payment-links/$slug'
+      fullPath: '/api/payment-links/$slug'
+      preLoaderRoute: typeof ApiPaymentLinksSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/progress/$token': {
       id: '/api/progress/$token'
       path: '/api/progress/$token'
       fullPath: '/api/progress/$token'
       preLoaderRoute: typeof ApiProgressTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reroute/openrouter': {
+      id: '/api/reroute/openrouter'
+      path: '/api/reroute/openrouter'
+      fullPath: '/api/reroute/openrouter'
+      preLoaderRoute: typeof ApiRerouteOpenrouterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stripe/webhook': {
@@ -629,6 +715,13 @@ declare module '@tanstack/react-router' {
       path: '/api/whitelist/verify'
       fullPath: '/api/whitelist/verify'
       preLoaderRoute: typeof ApiWhitelistVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/reroute/logs': {
+      id: '/api/admin/reroute/logs'
+      path: '/api/admin/reroute/logs'
+      fullPath: '/api/admin/reroute/logs'
+      preLoaderRoute: typeof ApiAdminRerouteLogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/whitelist/export': {
@@ -657,6 +750,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/whitelist/machines'
       fullPath: '/api/admin/whitelist/machines'
       preLoaderRoute: typeof ApiAdminWhitelistMachinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/delivery/file/$id': {
+      id: '/api/delivery/file/$id'
+      path: '/api/delivery/file/$id'
+      fullPath: '/api/delivery/file/$id'
+      preLoaderRoute: typeof ApiDeliveryFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/whitelist/machines/$id': {
@@ -725,18 +825,23 @@ const rootRouteChildren: RootRouteChildren = {
   BlogIndexRoute: BlogIndexRoute,
   ApiActivateSessionRoute: ApiActivateSessionRoute,
   ApiAdminDeliveryRoute: ApiAdminDeliveryRoute,
+  ApiAdminPaymentLinksRoute: ApiAdminPaymentLinksRoute,
   ApiAdminProjectsRoute: ApiAdminProjectsRoute,
   ApiAdminSimulateRoute: ApiAdminSimulateRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiPaymentLinksSlugRoute: ApiPaymentLinksSlugRoute,
   ApiProgressTokenRoute: ApiProgressTokenRoute,
+  ApiRerouteOpenrouterRoute: ApiRerouteOpenrouterRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiWhitelistRequestRoute: ApiWhitelistRequestRoute,
   ApiWhitelistVerifyRoute: ApiWhitelistVerifyRoute,
   ApiAuthIndexRoute: ApiAuthIndexRoute,
+  ApiAdminRerouteLogsRoute: ApiAdminRerouteLogsRoute,
   ApiAdminWhitelistExportRoute: ApiAdminWhitelistExportRoute,
   ApiAdminWhitelistImportRoute: ApiAdminWhitelistImportRoute,
   ApiAdminWhitelistJsonRoute: ApiAdminWhitelistJsonRoute,
   ApiAdminWhitelistMachinesRoute: ApiAdminWhitelistMachinesRouteWithChildren,
+  ApiDeliveryFileIdRoute: ApiDeliveryFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

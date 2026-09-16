@@ -7,6 +7,8 @@ import { getSql } from "@/lib/db";
 export type ProductKind =
   | "sat"
   | "act"
+  | "gmat"
+  | "gre"
   | "proctor"
   | "research"
   | "internship"
@@ -96,6 +98,30 @@ CREATE TABLE IF NOT EXISTS delivery_assets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )`);
     for (const col of [
+      `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS file_name TEXT`,
+      `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS file_mime TEXT`,
+      `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS file_data TEXT`,
+      `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS instructions TEXT`,
+      `ALTER TABLE delivery_assets ADD COLUMN IF NOT EXISTS external_url TEXT`,
+    ]) {
+      try {
+        await sql.query(col);
+      } catch {
+        /* exists */
+      }
+    }
+    await sql.query(`
+CREATE TABLE IF NOT EXISTS product_payment_links (
+  product_key TEXT PRIMARY KEY,
+  label TEXT,
+  exam_family TEXT,
+  tier TEXT,
+  payment_link_url TEXT NOT NULL DEFAULT '',
+  buy_button_id TEXT,
+  notes TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)`);
+    for (const col of [
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS product_key TEXT`,
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`,
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS stripe_session_id TEXT`,
@@ -129,7 +155,7 @@ export function productKeyFromAmount(cents: number): string {
 
 export function classifyProductKey(key: string): {
   kind: ProductKind;
-  exam?: "sat" | "act";
+  exam?: "sat" | "act" | "gmat" | "gre";
   tier?: "standard" | "pro" | "premium";
   flow: "os_serial" | "progress" | "proctor_serial";
 } {
@@ -163,6 +189,22 @@ export function classifyProductKey(key: string): {
         ? "pro"
         : "standard";
     return { kind: "act", exam: "act", tier, flow: "os_serial" };
+  }
+  if (k.startsWith("gmat-") || k === "gmat") {
+    const tier = k.includes("premium")
+      ? "premium"
+      : k.includes("pro")
+        ? "pro"
+        : "standard";
+    return { kind: "gmat", exam: "gmat", tier, flow: "os_serial" };
+  }
+  if (k.startsWith("gre-") || k === "gre") {
+    const tier = k.includes("premium")
+      ? "premium"
+      : k.includes("pro")
+        ? "pro"
+        : "standard";
+    return { kind: "gre", exam: "gre", tier, flow: "os_serial" };
   }
   if (k.includes("bundle")) {
     return { kind: "bundle", flow: "os_serial" };

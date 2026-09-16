@@ -56,6 +56,8 @@ function HomePage() {
   const bundle = PRODUCTS.find((p) => p.category === "bundle");
   const sat = getProductsByCategory("sat");
   const act = getProductsByCategory("act");
+  const gmat = getProductsByCategory("gmat");
+  const gre = getProductsByCategory("gre");
   const universal = PRODUCTS.find((p) => p.id.includes("universal-proctor"));
   const proctors = getProductsByCategory("proctoring").filter(
     (p) => !p.id.includes("universal"),
@@ -178,6 +180,20 @@ function HomePage() {
           title="ACT pathways"
           subtitle="Standard · Pro · Premium"
           products={act}
+        />
+
+        <CatalogBlock
+          id="section-gmat"
+          title="GMAT pathways"
+          subtitle="Standard · Pro · Premium · Payment Links in admin"
+          products={gmat}
+        />
+
+        <CatalogBlock
+          id="section-gre"
+          title="GRE pathways"
+          subtitle="Standard · Pro · Premium · Payment Links in admin"
+          products={gre}
         />
 
         {universal ? (
