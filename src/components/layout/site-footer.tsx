@@ -78,11 +78,6 @@ export function SiteFooter() {
           <h4 className="mb-3 text-sm font-semibold text-fg">Resources</h4>
           <ul className="space-y-2 text-sm text-fg-muted">
             <li>
-              <Link to="/demo" className="hover:text-primary">
-                Live demo
-              </Link>
-            </li>
-            <li>
               <Link to="/research" className="hover:text-primary">
                 Research papers
               </Link>

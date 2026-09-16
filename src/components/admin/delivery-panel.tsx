@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Apple, Link2, Monitor, RefreshCw, Shield, Trash2, Upload } from "lucide-react";
 import { BuyerPreviewCard } from "@/components/admin/buyer-preview-modal";
+import { ShowcaseVideosPanel } from "@/components/admin/showcase-videos-panel";
 
 type Asset = {
   id: string;
@@ -277,6 +278,7 @@ export function DeliveryPanel() {
 
   return (
     <div className="space-y-6">
+      <ShowcaseVideosPanel />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-xl font-bold text-fg">

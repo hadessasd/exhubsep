@@ -19,7 +19,6 @@ export const Route = createFileRoute("/sitemap.xml")({
         const origin = new URL(request.url).origin;
         const staticPaths = [
           "/",
-          "/demo",
           "/category/sat",
           "/category/act",
           "/category/proctoring",
@@ -46,7 +45,7 @@ export const Route = createFileRoute("/sitemap.xml")({
         const urls: { loc: string; priority: string; changefreq: string }[] = [
           ...staticPaths.map((p) => ({
             loc: origin + p,
-            priority: p === "/" ? "1.0" : p === "/demo" ? "0.85" : "0.8",
+            priority: p === "/" ? "1.0" : "0.8",
             changefreq: p === "/" ? "daily" : "weekly",
           })),
           ...PRODUCTS.map((p) => ({

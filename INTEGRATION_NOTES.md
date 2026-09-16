@@ -38,6 +38,24 @@ Buyer of `sat-pro` on macOS: `sat-pro-macos` → else `sat-all-macos` → else b
 
 Whitelist stays **category-level** (`sat`); delivery may still be tier- or all-category-scoped.
 
+
+## Admin-generated auth keys
+
+Admin → **Machines** → **Generate auth key**: pick `sat` | `act` | `gre` | `gmat` | `proctor` (not research). Optional note + expiry.
+
+Stored as `machine_whitelist.session_token` (`source=admin`, `product_key` = category, status `active`). Key stays valid until admin revokes it or it expires — **not burned** on use.
+
+Same authorize endpoints as Stripe-issued keys:
+
+```bash
+curl -sS -X POST https://examhub.shop/api/whitelist/verify \
+  -H 'content-type: application/json' \
+  -d '{ "authKey": "ADMIN_GENERATED_KEY", "category": "sat" }'
+```
+
+Admin API: `POST /api/admin/whitelist/auth-keys` `{ "category":"sat", "note?:", "expiresAt?:" }` · `GET` lists active/revoked/expired · `{ "action":"revoke", "id":"…" }`.
+
+
 ## Software whitelist (category scope)
 
 Software machine authorization is **category-level**, not Standard/Pro/Premium:
@@ -57,44 +75,9 @@ Delivery assets remain per exam **tier** + OS (`sat-pro-macos`, …). Whitelist 
 
 Admin → Machines: **General** + **SAT / ACT / GRE / GMAT / Proctor** tabs (no per-tier whitelist tabs).
 
-### Redeem (one-time) — macOS app
+### Authorize — macOS / client app (auth key only)
 
-`POST /api/whitelist/activate`
-
-```http
-POST /api/whitelist/activate HTTP/1.1
-Host: examhub.shop
-Content-Type: application/json
-
-{
-  "authKey": "a1b2c3d4e5f6…",
-  "serialNumber": "C02ABC123XYZ",
-  "hostname": "Khals-MacBook-Pro.local",
-  "ip": "203.0.113.10",
-  "approxLocation": "Dubai, AE"
-}
-```
-
-Category comes from the purchase bound to the auth key (SAT Pro → category `sat`). Success sketch:
-
-```json
-{
-  "ok": true,
-  "authorized": true,
-  "status": "active",
-  "machineId": "m_…",
-  "productKey": "sat",
-  "category": "sat",
-  "serialBound": true,
-  "authKeyBurned": true
-}
-```
-
-After success the auth key cannot be reused. Later checks use verify with the serial + category.
-
-### Verify — ongoing app checks
-
-`POST /api/whitelist/verify`
+**Preferred:** `POST /api/whitelist/verify` with the auth key. Serial is **not** required.
 
 ```http
 POST /api/whitelist/verify HTTP/1.1
@@ -102,12 +85,16 @@ Host: examhub.shop
 Content-Type: application/json
 
 {
-  "machineId": "C02ABC123XYZ",
+  "authKey": "a1b2c3d4e5f6…",
   "category": "sat"
 }
 ```
 
-Compat: `"productKey": "sat-pro"` is accepted and mapped → `sat`.
+`category` is optional when the key already encodes it; if provided it must match the key’s category (or the key is `general`).
+
+Optional metadata (stored as last-seen when sent): `hostname`, `ip`, `approxLocation`.
+
+`POST /api/whitelist/activate` accepts the **same** body and performs the same authorization (alias — key is **not** burned).
 
 Success sketch:
 
@@ -116,40 +103,37 @@ Success sketch:
   "ok": true,
   "authorized": true,
   "status": "active",
-  "keyName": "SAT pro · macos · paid",
+  "keyId": "m_…",
   "productKey": "sat",
-  "category": "sat"
+  "category": "sat",
+  "keyName": "SAT pro · macos · paid",
+  "expiresAt": null
 }
 ```
 
-| Serial on | Verify category | Result |
-|-----------|-----------------|--------|
-| `sat` | `sat` | authorized |
+| Auth key category | Verify `category` | Result |
+|-------------------|-------------------|--------|
+| `sat` | `sat` (or omitted) | authorized |
 | `sat` | `gre` | **not** authorized |
 | `general` | any software category | authorized |
 
 ```bash
-# Redeem
-curl -sS -X POST https://examhub.shop/api/whitelist/activate \
-  -H 'content-type: application/json' \
-  -d '{
-    "authKey": "PASTE_AUTH_CODE",
-    "serialNumber": "C02ABC123XYZ",
-    "hostname": "Khals-MacBook-Pro.local",
-    "ip": "203.0.113.10",
-    "approxLocation": "Dubai, AE"
-  }'
-
-# Verify
+# Verify (primary)
 curl -sS -X POST https://examhub.shop/api/whitelist/verify \
   -H 'content-type: application/json' \
-  -d '{"machineId":"C02ABC123XYZ","category":"sat"}'
+  -d '{ "authKey": "PASTE_AUTH_CODE", "category": "sat" }'
+
+# Activate alias (same semantics)
+curl -sS -X POST https://examhub.shop/api/whitelist/activate \
+  -H 'content-type: application/json' \
+  -d '{ "authKey": "PASTE_AUTH_CODE", "hostname": "MacBook.local" }'
 ```
 
+Legacy serial `machineId` verify still exists for admin/older tools but is **not** the documented macOS path.
 
-## Serial verification
+## Serial verification (legacy / admin)
 
-The client sends the raw serial to ExamHub. ExamHub trims it, uppercases it, SHA-256 hashes it server-side, and compares the digest with `machine_whitelist.machine_id_hash`.
+Software apps should use **auth key** verify (above). Serial hashing remains for admin Machines tools and older daemons:
 
 POST `https://examhub.shop/api/whitelist/verify`
 
@@ -157,16 +141,12 @@ POST `https://examhub.shop/api/whitelist/verify`
 {"machineId":"C02ABC123XYZ","category":"sat"}
 ```
 
-Omit `productKey` only for legacy clients; macOS apps should always send the package id.
+After a successful Stripe purchase, `/activate` may still accept a buyer serial for purchase bookkeeping; the response includes:
 
-A whitelisted machine returns `authorized: true` and `status: "active"`.
-
-After a successful Stripe purchase, `/activate` accepts the buyer's raw serial and stores only its SHA-256 digest in the whitelist. The response includes:
-
-- **authCode** — one-time `machine_whitelist.session_token` for the macOS app redeem call (`POST /api/whitelist/activate`)
+- **authCode** — `machine_whitelist.session_token` for the ExamHub app (`POST /api/whitelist/verify` with `authKey`)
 - **delivery** — download URL scoped to the purchased exam/tier/OS (uploaded blob at `/api/delivery/file/:id` and/or external link) + instructions
 
-After the app redeems, the auth code is burned; ongoing authorization is serial whitelist verify only.
+The auth code stays active until revoked or expired. The app authorizes with the same auth key on every check.
 
 
 ## Product → software delivery mapping
@@ -184,72 +164,45 @@ Webhook + `/api/activate/session` store/read `product_key` from `client_referenc
 
 Bare tier keys (`standard` / `pro` / `premium`) only appear when Stripe did not send a reference id — `/activate` then requires an exam pick before whitelisting.
 
-## macOS app auth redeem (one-time)
+## macOS app auth (auth key only)
 
-After `/activate` shows an **auth code** (`machine_whitelist.session_token`), the macOS app redeems once:
-
-`POST https://examhub.shop/api/whitelist/activate`
+`POST /api/whitelist/verify` (or `/api/whitelist/activate` — same behavior)
 
 ```json
 {
   "authKey": "a1b2c3d4…",
-  "serialNumber": "C02ABC123XYZ",
-  "hostname": "Khals-MacBook-Pro.local",
-  "ip": "203.0.113.10",
-  "approxLocation": "Dubai, AE"
+  "category": "sat",
+  "hostname": "optional",
+  "ip": "optional",
+  "approxLocation": "optional"
 }
 ```
 
-Accepted field aliases:
+Aliases: `auth_key` / `authCode` / `auth_code`. Serial / `machineId` are **not** required for the app path.
 
-| Canonical | Also accepted |
-|-----------|---------------|
-| `authKey` | `auth_key`, `authCode`, `auth_code` |
-| `serialNumber` | `serial_number`, `serial`, `machineId`, `machine_id` |
-| `hostname` | `hostName`, `host_name` |
-| `ip` | `ipAddress`, `ip_address` (optional; server also records `X-Forwarded-For`) |
-| `approxLocation` | `approximateLocation`, `approx_location`, `location` (optional free text / city / `lat,lng`) |
-| `os` | optional, defaults to `macos` |
-
-Success response (200):
+Success:
 
 ```json
 {
   "ok": true,
   "authorized": true,
   "status": "active",
-  "machineId": "m_…",
-  "productKey": "sat-pro",
-  "keyName": "SAT pro · macos · paid",
-  "serialBound": true,
-  "authKeyBurned": true,
-  "message": "Auth key burned. Use POST /api/whitelist/verify with machineId (serial) for subsequent checks."
+  "keyId": "m_…",
+  "productKey": "sat",
+  "category": "sat",
+  "keyName": "…",
+  "expiresAt": null
 }
 ```
 
-Behavior:
+Server flow:
 
-1. Validate `authKey` against `machine_whitelist.session_token` (must be present / unused).
-2. SHA-256 hash `serialNumber` server-side; store digest in `machine_id_hash`.
-3. Persist `hostname`, IP (`last_ip`), and `approx_location`.
-4. **Burn** the auth key: `session_token = NULL` (one-time). Reuse returns 401.
-5. Subsequent checks: `POST /api/whitelist/verify` with `{ "machineId": "<raw serial>" }` — do **not** send the burned auth key.
+1. Look up `machine_whitelist.session_token` = authKey.
+2. Reject if missing, revoked (`blocked`), or expired.
+3. If `category` provided, it must match the key’s `product_key` (or key is `general`).
+4. Optionally store hostname / ip / approx_location + `last_seen_at`.
+5. Return authorized. **Do not** clear `session_token`.
 
-Example curl:
-
-```bash
-curl -sS -X POST https://examhub.shop/api/whitelist/activate \
-  -H 'content-type: application/json' \
-  -d '{
-    "authKey": "PASTE_AUTH_CODE",
-    "serialNumber": "C02ABC123XYZ",
-    "hostname": "Khals-MacBook-Pro.local",
-    "ip": "203.0.113.10",
-    "approxLocation": "Dubai, AE"
-  }'
-```
-
-Security: full auth keys are never written to logs (masked as `abcd…wxyz`). Invalid keys are rate-limited (fail closed). Keep Stripe / DB secrets out of the client bundle.
 
 ## Admin delivery
 

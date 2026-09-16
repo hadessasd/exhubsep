@@ -14,6 +14,9 @@ import {
   Search,
   FileJson,
   Shield,
+  KeyRound,
+  Copy,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -121,6 +124,33 @@ export function MachinesPanel() {
   const [formProductKey, setFormProductKey] = useState("general");
   const [saving, setSaving] = useState(false);
 
+  const [genCategory, setGenCategory] = useState("sat");
+  const [genNote, setGenNote] = useState("");
+  const [genExpires, setGenExpires] = useState("");
+  const [genBusy, setGenBusy] = useState(false);
+  const [lastGenerated, setLastGenerated] = useState<{
+    authKey: string;
+    category: string;
+    id: string;
+    expiresAt: string | null;
+  } | null>(null);
+  const [authKeys, setAuthKeys] = useState<
+    Array<{
+      id: string;
+      category: string;
+      authKey: string;
+      keyName: string;
+      note: string | null;
+      expiresAt: string | null;
+      createdAt?: string;
+      source?: string | null;
+      effectiveStatus?: string;
+      status?: string;
+      lastSeenAt?: string | null;
+      hostname?: string | null;
+    }>
+  >([]);
+
   const loadMachines = useCallback(async () => {
     setLoading(true);
     try {
@@ -146,16 +176,78 @@ export function MachinesPanel() {
     }
   }, [scope]);
 
+  const loadAuthKeys = useCallback(async () => {
+    try {
+      const data = await fetchJson<{
+        keys?: typeof authKeys;
+      }>("/api/admin/whitelist/auth-keys");
+      setAuthKeys(Array.isArray(data.keys) ? data.keys : []);
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
   useEffect(() => {
     void loadMachines();
-    const t = setInterval(() => void loadMachines(), 15000);
+    void loadAuthKeys();
+    const t = setInterval(() => {
+      void loadMachines();
+      void loadAuthKeys();
+    }, 15000);
     return () => clearInterval(t);
-  }, [loadMachines]);
+  }, [loadMachines, loadAuthKeys]);
 
   useEffect(() => {
     // Keep add form scoped to the active tab
     setFormProductKey(scope || "general");
   }, [scope]);
+
+  async function generateAuthKey() {
+    setGenBusy(true);
+    try {
+      const data = await fetchJson<{
+        authKey: string;
+        category: string;
+        id: string;
+        expiresAt: string | null;
+      }>("/api/admin/whitelist/auth-keys", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "create",
+          category: genCategory,
+          note: genNote.trim() || undefined,
+          expiresAt: genExpires.trim() || null,
+        }),
+      });
+      setLastGenerated({
+        authKey: data.authKey,
+        category: data.category,
+        id: data.id,
+        expiresAt: data.expiresAt,
+      });
+      toast.success(`Auth key generated for ${data.category.toUpperCase()}`);
+      await loadAuthKeys();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Generate failed");
+    } finally {
+      setGenBusy(false);
+    }
+  }
+
+  async function revokeAuthKey(id: string) {
+    if (!confirm("Revoke this auth key? The app will no longer authorize with it.")) return;
+    try {
+      await fetchJson("/api/admin/whitelist/auth-keys", {
+        method: "POST",
+        body: JSON.stringify({ action: "revoke", id }),
+      });
+      toast.success("Key revoked");
+      if (lastGenerated?.id === id) setLastGenerated(null);
+      await loadAuthKeys();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Revoke failed");
+    }
+  }
 
   const stats = useMemo(() => {
     const total = machines.length;
@@ -445,6 +537,184 @@ export function MachinesPanel() {
           </Button>
         </div>
       </div>
+
+      <Card className="border-primary/30 bg-primary-soft/25">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="h-4 w-4 text-primary" />
+            Generate auth key
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-fg-muted">
+            Mint an auth key for a software category without Stripe. The app
+            authorizes with the auth key alone (no serial). Key stays active
+            until you revoke it or it expires. Not available for research /
+            non-software.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <Select
+                value={genCategory}
+                onChange={(e) => setGenCategory(e.target.value)}
+              >
+                {(["sat", "act", "gre", "gmat", "proctor"] as const).map((c) => (
+                  <option key={c} value={c}>
+                    {c.toUpperCase()}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Expiry (optional)</Label>
+              <Input
+                type="datetime-local"
+                value={genExpires}
+                onChange={(e) => setGenExpires(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                disabled={genBusy}
+                onClick={() => void generateAuthKey()}
+                className="w-full"
+              >
+                {genBusy ? "Generating…" : "Generate auth key"}
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Note / label (optional)</Label>
+            <Input
+              value={genNote}
+              onChange={(e) => setGenNote(e.target.value)}
+              placeholder="e.g. Support ticket #123 · replacement key"
+            />
+          </div>
+
+          {lastGenerated ? (
+            <div className="space-y-2 rounded-xl border border-green-300 bg-green-50/80 p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-green-900">
+                New key · {lastGenerated.category.toUpperCase()} — copy now
+              </p>
+              <code className="block break-all rounded-lg bg-white px-3 py-2 font-mono text-xs text-fg">
+                {lastGenerated.authKey}
+              </code>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(lastGenerated.authKey);
+                    toast.success("Copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy
+                </Button>
+                {lastGenerated.expiresAt ? (
+                  <span className="text-[11px] text-fg-muted">
+                    Expires {new Date(lastGenerated.expiresAt).toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-fg-muted">No expiry</span>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {authKeys.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                Auth keys ({authKeys.filter((k) => k.effectiveStatus === "active").length} active · {authKeys.length} total)
+              </p>
+              <div className="max-h-56 space-y-1.5 overflow-y-auto">
+                {authKeys.map((k) => {
+                  const eff = k.effectiveStatus || k.status || "unknown";
+                  return (
+                  <div
+                    key={k.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-surface px-2 py-1.5 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-bold uppercase text-primary">
+                        {k.category}
+                      </span>{" "}
+                      <Badge
+                        className={
+                          eff === "active"
+                            ? "border-green-300 bg-green-50 text-green-800"
+                            : eff === "revoked" || eff === "blocked"
+                              ? "border-red-300 bg-red-50 text-red-800"
+                              : eff === "expired"
+                                ? "border-amber-300 bg-amber-50 text-amber-900"
+                                : "border-border bg-bg-soft text-fg-muted"
+                        }
+                      >
+                        {eff}
+                      </Badge>{" "}
+                      <span className="text-muted">{k.source || "—"}</span>
+                      {k.authKey ? (
+                        <code className="ml-1 break-all font-mono text-[10px] text-fg-muted">
+                          {k.authKey.slice(0, 12)}…
+                        </code>
+                      ) : (
+                        <span className="ml-1 text-muted">(revoked)</span>
+                      )}
+                      {k.note ? (
+                        <span className="ml-1 text-muted">· {k.note}</span>
+                      ) : null}
+                      <div className="text-[10px] text-muted">
+                        {k.createdAt
+                          ? `Created ${new Date(k.createdAt).toLocaleString()}`
+                          : null}
+                        {k.expiresAt
+                          ? ` · Expires ${new Date(k.expiresAt).toLocaleString()}`
+                          : " · No expiry"}
+                        {k.lastSeenAt
+                          ? ` · Seen ${new Date(k.lastSeenAt).toLocaleString()}`
+                          : null}
+                        {k.hostname ? ` · ${k.hostname}` : null}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {k.authKey ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(k.authKey);
+                            toast.success("Copied");
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      ) : null}
+                      {eff === "active" || eff === "pending" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-red-600"
+                          onClick={() => void revokeAuthKey(k.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="space-y-3 p-4">

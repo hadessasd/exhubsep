@@ -525,12 +525,7 @@ function ActivatePage() {
                           Copy auth code
                         </Button>
                         <p className="text-[11px] text-fg-muted">
-                          Paste this one-time auth code into the ExamHub macOS
-                          app (with serial, hostname, IP, and approximate
-                          location). The app calls{" "}
-                          <code className="font-mono">POST /api/whitelist/activate</code>
-                          ; the key is burned after first use. Later checks use
-                          serial whitelist verify only.
+                          Enter this auth code in the ExamHub app.
                         </p>
                       </>
                     ) : (

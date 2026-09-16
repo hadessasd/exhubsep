@@ -13,13 +13,13 @@ import {
   getProductsByCategory,
 } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/products/product-card";
+import { CategoryShowcaseVideo } from "@/components/home/category-showcase-video";
 import {
   ArrowRight,
   ShieldCheck,
   Zap,
   Wallet,
   Percent,
-  Play,
   FileText,
   Briefcase,
   Shield,
@@ -186,35 +186,6 @@ function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
-          <div className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-[#3d2918] via-[#5c3d22] to-primary p-[1px] shadow-lg">
-            <div className="rounded-[1.4rem] bg-gradient-to-br from-[#2c1a0e] via-[#3d2918] to-[#4a3018] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-9">
-              <div className="max-w-xl">
-                <Badge className="mb-3 border-0 bg-accent/20 text-accent-soft">
-                  <Play className="mr-1 h-3.5 w-3.5" />
-                  Interactive demo
-                </Badge>
-                <h2 className="font-display text-2xl font-bold text-[#fffbf5] sm:text-3xl">
-                  SAT assist overlay + sandbox visual
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-[#e4d4bb]">
-                  Guided tutorial first, then a 5-question digital SAT frame with
-                  discreet Assist control and sandbox isolation diagram.
-                </p>
-              </div>
-              <Link to="/demo" className="mt-5 inline-block sm:mt-0">
-                <Button
-                  size="lg"
-                  className="bg-[#fffbf5] text-[#2c1a0e] hover:bg-accent-soft"
-                >
-                  Open demo
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-
         <div id="section-products" className="scroll-mt-24" />
 
         <CatalogBlock
@@ -224,6 +195,7 @@ function HomePage() {
           subtitle="Standard · Pro · Premium — macOS & Windows software delivery"
           icon={GraduationCap}
           products={sat}
+          showcaseCategory="sat"
         />
 
         <CatalogBlock
@@ -233,6 +205,7 @@ function HomePage() {
           subtitle="Standard · Pro · Premium — distinct ACT builds per OS"
           icon={BookOpen}
           products={act}
+          showcaseCategory="act"
         />
 
         <CatalogBlock
@@ -242,6 +215,7 @@ function HomePage() {
           subtitle="Standard · Pro · Premium — Payment Links via admin when ready"
           icon={BookOpen}
           products={gre}
+          showcaseCategory="gre"
         />
 
         <CatalogBlock
@@ -251,6 +225,7 @@ function HomePage() {
           subtitle="Standard · Pro · Premium — Payment Links via admin when ready"
           icon={GraduationCap}
           products={gmat}
+          showcaseCategory="gmat"
         />
 
         {/* Proctor lockdown browsers — universal delivery */}
@@ -284,6 +259,8 @@ function HomePage() {
               View all proctor tools
             </a>
           </div>
+
+          <CategoryShowcaseVideo category="proctor" />
 
           {universal ? (
             <div id="section-universal" className="mb-6 scroll-mt-24">
@@ -461,6 +438,7 @@ function CatalogBlock({
   products,
   moreHref,
   icon,
+  showcaseCategory,
 }: {
   id?: string;
   eyebrow?: string;
@@ -469,6 +447,8 @@ function CatalogBlock({
   products: (typeof PRODUCTS)[number][];
   moreHref?: string;
   icon?: React.ComponentType<{ className?: string }>;
+  /** Homepage showcase video category key (sat|act|gre|gmat|proctor) */
+  showcaseCategory?: string;
 }) {
   if (!products.length) return null;
   return (
@@ -483,6 +463,12 @@ function CatalogBlock({
         icon={icon}
         moreHref={moreHref}
       />
+      {showcaseCategory ? (
+        <CategoryShowcaseVideo
+          category={showcaseCategory}
+          className="mb-5 max-w-3xl overflow-hidden rounded-2xl border border-border bg-surface shadow-sm"
+        />
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {products.map((p) => (
           <ProductCard key={p.id} product={p} />

@@ -45,7 +45,7 @@ function tierFromKey(
 /**
  * Admin-only: preview the post-purchase /activate buyer experience for a
  * catalog product. Uses real delivery resolution. Does NOT create Stripe
- * sessions, whitelist rows, or burn auth keys — auth code is a labeled PREVIEW sample.
+ * sessions or whitelist rows — auth code is a labeled PREVIEW sample.
  */
 export const Route = createFileRoute("/api/admin/preview-activate")({
   server: {
@@ -118,7 +118,7 @@ export const Route = createFileRoute("/api/admin/preview-activate")({
             ok: true,
             isPreview: true,
             previewNote:
-              "Sample buyer view only. Auth code is PREVIEW-labeled and not redeemable. No Stripe session or whitelist row was created.",
+              "Sample buyer view only. Auth code is PREVIEW-labeled and not a real key. No Stripe session or whitelist row was created.",
             payment: {
               sessionId: "cs_preview_demo",
               amountCents: product ? Math.round(product.priceUsd * 100) : 0,

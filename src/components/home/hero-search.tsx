@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import {
   Search,
   GraduationCap,
@@ -11,7 +10,6 @@ import {
   Sparkles,
   Trophy,
   Wrench,
-  Play,
 } from "lucide-react";
 import {
   CATEGORIES,
@@ -118,12 +116,6 @@ export function HeroSearch() {
           <div className="relative">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <Badge>US · UK · Europe · Global</Badge>
-              <Link to="/demo">
-                <Badge variant="accent" className="cursor-pointer gap-1">
-                  <Play className="h-3 w-3" />
-                  Live demo
-                </Badge>
-              </Link>
             </div>
             <h1 className="max-w-2xl font-display text-3xl font-bold tracking-tight text-fg sm:text-5xl">
               Exam prep that actually{" "}
@@ -214,12 +206,6 @@ export function HeroSearch() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <Link to="/demo">
-                <Button variant="outline" size="sm">
-                  <Play className="h-4 w-4" />
-                  Open assist + sandbox demo
-                </Button>
-              </Link>
               <Button
                 type="button"
                 variant="outline"

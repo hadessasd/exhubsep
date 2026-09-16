@@ -294,7 +294,7 @@ export function BuyerPreviewCard() {
           <p className="text-sm text-fg-muted">
             See exactly what a buyer gets on <code className="font-mono text-xs">/activate</code>{" "}
             after purchasing a package — real delivery assets for macOS/Windows,
-            with a labeled <strong>PREVIEW</strong> auth code (not redeemable,
+            with a labeled <strong>PREVIEW</strong> auth code (sample only,
             nothing is written to the whitelist).
           </p>
           <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
@@ -474,11 +474,8 @@ export function BuyerPreviewCard() {
                           Copy preview code
                         </Button>
                         <p className="text-[11px] text-fg-muted">
-                          Real buyers receive a one-time{" "}
-                          <code className="font-mono">session_token</code> here.
-                          This PREVIEW_* value is generated for admin QA only and
-                          is never stored or burnable via{" "}
-                          <code className="font-mono">/api/whitelist/activate</code>.
+                          Enter this auth code in the ExamHub app. (Preview
+                          sample — not a real key.)
                         </p>
                       </div>
 

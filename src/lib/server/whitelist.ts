@@ -859,6 +859,193 @@ export async function importMachines(opts: {
 }
 
 
+
+export type ManualAuthKeyRow = {
+  id: string;
+  category: string;
+  authKey: string;
+  keyName: string;
+  note: string | null;
+  status: string;
+  expiresAt: string | null;
+  source: string | null;
+  createdAt?: string;
+};
+
+const SOFTWARE_CATS = new Set(["sat", "act", "gre", "gmat", "proctor"]);
+
+/** Admin: mint an auth key for a software category (no Stripe). Key stays valid until revoke/expiry. */
+export async function createManualAuthKey(input: {
+  category: string;
+  keyName?: string;
+  note?: string | null;
+  /** ISO expiry; omit / null = never expires until redeemed */
+  expiresAt?: string | null;
+}): Promise<ManualAuthKeyRow> {
+  await ensureMachineTable();
+  const category = normalizeWhitelistProductKey(input.category);
+  if (!SOFTWARE_CATS.has(category)) {
+    throw new Error(
+      "Category must be sat, act, gre, gmat, or proctor (not general / research)",
+    );
+  }
+  const sql = await getSql();
+  const id = uid("m");
+  const token = newSessionToken();
+  const keyName =
+    input.keyName?.trim() ||
+    `Admin key · ${category.toUpperCase()}`;
+  const note =
+    input.note?.trim() ||
+    `Manual auth key for category ${category}`;
+  const expiresAt =
+    input.expiresAt && input.expiresAt.trim()
+      ? new Date(input.expiresAt).toISOString()
+      : null;
+  if (expiresAt && Number.isNaN(new Date(expiresAt).getTime())) {
+    throw new Error("Invalid expiresAt");
+  }
+
+  // Auth-key credential row: session_token is the long-lived auth key (not burned on use).
+  // Unique (hash, product_key) only applies when hash is NOT NULL.
+  await sql`
+    INSERT INTO machine_whitelist (
+      id, key_name, machine_id_hash, serial_number, hostname, note, status,
+      expires_at, session_token, product_key, source, stripe_session_id
+    ) VALUES (
+      ${id}, ${keyName}, ${null}, ${null}, ${null}, ${note}, 'active',
+      ${expiresAt}, ${token}, ${category}, 'admin', ${null}
+    )
+  `;
+
+  return {
+    id,
+    category,
+    authKey: token,
+    keyName,
+    note,
+    status: "active",
+    expiresAt,
+    source: "admin",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export type AuthKeyListRow = ManualAuthKeyRow & {
+  lastSeenAt?: string | null;
+  hostname?: string | null;
+  lastIp?: string | null;
+  approxLocation?: string | null;
+  effectiveStatus: "active" | "revoked" | "expired" | "pending" | string;
+};
+
+function effectiveAuthKeyStatus(m: MachineRow): string {
+  if (!m.sessionToken && (m.status === "blocked" || m.source === "admin" || m.source === "stripe")) {
+    if (m.status === "blocked") return "revoked";
+  }
+  if (!m.sessionToken) return m.status === "blocked" ? "revoked" : m.status;
+  if (m.status === "blocked") return "revoked";
+  if (m.expiresAt) {
+    const exp = new Date(m.expiresAt).getTime();
+    if (!Number.isNaN(exp) && exp < Date.now()) return "expired";
+  }
+  if (m.status === "expired") return "expired";
+  if (m.status === "pending") return "pending";
+  if (m.status === "active" && m.sessionToken) return "active";
+  return m.status || "unknown";
+}
+
+/** List software auth keys (admin + stripe) for admin UI. */
+export async function listAuthKeys(
+  category?: string | null,
+): Promise<AuthKeyListRow[]> {
+  await ensureMachineTable();
+  const sql = await getSql();
+  const scope = category?.trim()
+    ? normalizeWhitelistProductKey(category)
+    : null;
+  const rows = (
+    scope
+      ? await sql`
+          SELECT * FROM machine_whitelist
+          WHERE product_key = ${scope}
+            AND (
+              session_token IS NOT NULL
+              OR source IN ('admin', 'stripe')
+            )
+            AND product_key IN ('sat','act','gre','gmat','proctor','general')
+          ORDER BY created_at DESC
+          LIMIT 300
+        `
+      : await sql`
+          SELECT * FROM machine_whitelist
+          WHERE (
+              session_token IS NOT NULL
+              OR source IN ('admin', 'stripe')
+            )
+            AND (
+              product_key IN ('sat','act','gre','gmat','proctor')
+              OR (source = 'admin' AND product_key IN ('sat','act','gre','gmat','proctor'))
+            )
+          ORDER BY created_at DESC
+          LIMIT 300
+        `
+  ) as Array<Record<string, unknown>>;
+
+  return rows.map((r) => {
+    const m = rowToMachine(r);
+    const eff = effectiveAuthKeyStatus(m);
+    return {
+      id: m.id,
+      category: normalizeWhitelistProductKey(m.productKey),
+      authKey: m.sessionToken || "",
+      keyName: m.keyName,
+      note: m.note,
+      status: m.status,
+      effectiveStatus: eff,
+      expiresAt: m.expiresAt,
+      source: m.source,
+      createdAt: m.createdAt,
+      lastSeenAt: m.lastSeenAt,
+      hostname: m.hostname,
+      lastIp: m.lastIp,
+      approxLocation: m.approxLocation,
+    };
+  });
+}
+
+/** @deprecated alias — use listAuthKeys */
+export async function listUnusedManualAuthKeys(
+  category?: string | null,
+): Promise<ManualAuthKeyRow[]> {
+  const all = await listAuthKeys(category);
+  return all.filter((k) => k.effectiveStatus === "active" && k.authKey);
+}
+
+export async function revokeManualAuthKey(id: string): Promise<void> {
+  await ensureMachineTable();
+  const sql = await getSql();
+  const rows = (await sql`
+    SELECT id, source, session_token, product_key FROM machine_whitelist
+    WHERE id = ${id} LIMIT 1
+  `) as Array<Record<string, unknown>>;
+  const row = rows[0];
+  if (!row) throw new Error("Key not found");
+  const pk = normalizeWhitelistProductKey(String(row.product_key || ""));
+  if (!SOFTWARE_CATS.has(pk) && pk !== "general") {
+    throw new Error("Not a software auth key");
+  }
+  await sql`
+    UPDATE machine_whitelist SET
+      session_token = NULL,
+      status = 'blocked',
+      note = COALESCE(note, '') || E'\n[revoked by admin]',
+      updated_at = now()
+    WHERE id = ${id}
+  `;
+}
+
+
 /** Mask auth keys for admin/console logs (never log full token). */
 export function maskAuthKey(key: string | null | undefined): string {
   const k = (key || "").trim();
@@ -923,43 +1110,42 @@ export async function findMachineByAuthKey(
   return rows[0] ? rowToMachine(rows[0]) : null;
 }
 
-export type RedeemAuthInput = {
+export type AuthKeyAuthorizeInput = {
   authKey: string;
-  serialNumber: string;
-  hostname: string;
-  /** Client-reported IP (optional); request IP is preferred when present. */
+  /** Optional software category check (`sat`…). Must match key category or key is `general`. */
+  category?: string | null;
+  productKey?: string | null;
+  exam?: string | null;
+  tier?: string | null;
+  hostname?: string | null;
   ip?: string | null;
-  /** Free-form approximate location: city, "lat,lng", or short place string. */
   approxLocation?: string | null;
-  /** Request IP from reverse proxy headers. */
   requestIp?: string | null;
   os?: string | null;
 };
 
+/** @deprecated kept for type compat — serial no longer used */
+export type RedeemAuthInput = AuthKeyAuthorizeInput & {
+  serialNumber?: string;
+};
+
 /**
- * One-time macOS app redeem:
- * 1) Validate auth key (session_token) exists and is unused
- * 2) Whitelist serial (SHA-256 digest)
- * 3) Persist hostname, IP, approx location
- * 4) Burn auth key (session_token → NULL) so it cannot be reused
- * Subsequent checks use POST /api/whitelist/verify with serial + category.
+ * Authorize by auth key alone (Stripe-issued or admin-generated).
+ * Key stays active until admin revoke or expiry — NOT burned on use.
+ * Optional hostname / ip / approxLocation are stored as last-seen metadata.
  */
-export async function redeemAuthKey(input: RedeemAuthInput): Promise<{
+export async function authorizeByAuthKey(input: AuthKeyAuthorizeInput): Promise<{
   ok: true;
   authorized: true;
   status: "active";
-  machineId: string;
+  keyId: string;
   productKey: string | null;
+  category: string | null;
   keyName: string;
-  serialBound: true;
-  authKeyBurned: true;
+  expiresAt: string | null;
 }> {
   const authKey = input.authKey?.trim() || "";
-  const serial = input.serialNumber?.trim() || "";
-  const hostname = input.hostname?.trim() || "";
   if (!authKey) throw new Error("authKey required");
-  if (!serial) throw new Error("serialNumber required");
-  if (!hostname) throw new Error("hostname required");
 
   assertRedeemNotRateLimited(input.requestIp || undefined, authKey);
 
@@ -969,87 +1155,105 @@ export async function redeemAuthKey(input: RedeemAuthInput): Promise<{
 
   if (!machine || !machine.sessionToken) {
     recordRedeemFailure(input.requestIp || undefined, authKey);
-    // Fail closed — do not reveal whether the key ever existed
-    throw new Error("Invalid or already used auth key");
+    throw new Error("Invalid auth key");
   }
 
   if (machine.status === "blocked") {
     recordRedeemFailure(input.requestIp || undefined, authKey);
-    throw new Error("Machine is blocked");
+    throw new Error("Auth key is revoked");
   }
 
   if (machine.status === "expired") {
     recordRedeemFailure(input.requestIp || undefined, authKey);
-    throw new Error("Activation expired");
+    throw new Error("Auth key expired");
   }
 
-  const digest = hashSerial(serial);
-  // Auth key is bound to the purchase product package (from Stripe /activate)
-  const packageKey = normalizeWhitelistProductKey(machine.productKey);
-
-  // Conflict only within the same product whitelist
-  const other = await findMachineByInput(serial, packageKey);
-  if (other && other.id !== machine.id) {
-    recordRedeemFailure(input.requestIp || undefined, authKey);
-    throw new Error(
-      `Serial is already registered on the ${packageKey} whitelist`,
-    );
+  if (machine.expiresAt) {
+    const exp = new Date(machine.expiresAt).getTime();
+    if (!Number.isNaN(exp) && exp < Date.now()) {
+      await sql`UPDATE machine_whitelist SET status = 'expired', updated_at = now() WHERE id = ${machine.id}`;
+      recordRedeemFailure(input.requestIp || undefined, authKey);
+      throw new Error("Auth key expired");
+    }
   }
 
-  // If this auth row already has a different serial hash, refuse remapping
-  if (
-    machine.serialNumber &&
-    machine.serialNumber.length === 64 &&
-    machine.serialNumber !== digest
-  ) {
+  // pending admin keys / stripe should be treatable as active credentials once issued
+  if (machine.status === "pending") {
+    // promote to active on first successful authorize
+  } else if (machine.status !== "active") {
     recordRedeemFailure(input.requestIp || undefined, authKey);
-    throw new Error("Auth key is bound to a different serial");
+    throw new Error(`Auth key status: ${machine.status}`);
+  }
+
+  const keyCategory = normalizeWhitelistProductKey(machine.productKey);
+  const requested = resolveWhitelistProductKey({
+    productKey: input.productKey,
+    category: input.category,
+    exam: input.exam,
+    tier: input.tier,
+  });
+  const hasExplicit =
+    Boolean(input.category?.trim()) ||
+    Boolean(input.productKey?.trim()) ||
+    Boolean(input.exam?.trim());
+
+  if (hasExplicit) {
+    const ok =
+      keyCategory === GENERAL_WHITELIST_KEY ||
+      keyCategory === requested;
+    if (!ok) {
+      recordRedeemFailure(input.requestIp || undefined, authKey);
+      throw new Error(
+        `Auth key is for category ${keyCategory}, not ${requested}`,
+      );
+    }
   }
 
   const ip =
-    (input.requestIp?.trim() || input.ip?.trim() || machine.lastIp || null) ??
-    null;
-  const approx =
-    (input.approxLocation?.trim() || machine.approxLocation || null) ?? null;
-  const os = (input.os?.trim() || machine.os || "macos") ?? "macos";
+    (input.requestIp?.trim() || input.ip?.trim() || null) ?? null;
+  const hostname = input.hostname?.trim() || null;
+  const approx = input.approxLocation?.trim() || null;
+  const os = input.os?.trim() || null;
 
-  // Bind serial on this product whitelist + burn one-time auth key
   await sql`
     UPDATE machine_whitelist SET
-      machine_id_hash = ${digest},
-      serial_number = NULL,
-      hostname = ${hostname},
-      last_ip = ${ip},
-      approx_location = ${approx},
-      os = ${os},
-      product_key = ${packageKey},
       status = 'active',
-      session_token = NULL,
+      hostname = COALESCE(${hostname}, hostname),
+      last_ip = COALESCE(${ip}, last_ip),
+      approx_location = COALESCE(${approx}, approx_location),
+      os = COALESCE(${os}, os),
       last_seen_at = now(),
       updated_at = now()
     WHERE id = ${machine.id}
       AND session_token = ${authKey}
   `;
 
-  // Confirm burn succeeded (prevents double-redeem races)
-  const refreshed = await getMachineById(machine.id);
-  if (!refreshed || refreshed.sessionToken) {
-    recordRedeemFailure(input.requestIp || undefined, authKey);
-    throw new Error("Invalid or already used auth key");
-  }
-
   clearRedeemFailures(input.requestIp || undefined, authKey);
+
+  const refreshed = await getMachineById(machine.id);
+  const cat = normalizeWhitelistProductKey(
+    refreshed?.productKey ?? machine.productKey,
+  );
 
   return {
     ok: true,
     authorized: true,
     status: "active",
-    machineId: refreshed.id,
-    productKey: refreshed.productKey,
-    keyName: refreshed.keyName,
-    serialBound: true,
-    authKeyBurned: true,
+    keyId: machine.id,
+    productKey: cat,
+    category: cat,
+    keyName: refreshed?.keyName ?? machine.keyName,
+    expiresAt: refreshed?.expiresAt ?? machine.expiresAt,
   };
+}
+
+/** Soft alias: activate = authorize (no burn, no serial). */
+export async function redeemAuthKey(input: RedeemAuthInput) {
+  return authorizeByAuthKey(input);
+}
+
+export async function verifyAuthKey(input: AuthKeyAuthorizeInput) {
+  return authorizeByAuthKey(input);
 }
 
 export function json(data: unknown, status = 200): Response {

@@ -748,15 +748,6 @@ export function getSeoDirectory(): {
       priceUsd: 0,
     },
     {
-      name: "Live demo",
-      path: "/demo",
-      seoTitle: `SAT Assist Demo & Sandbox Visual | ExamHub ${YEAR}`,
-      seoDescription:
-        "Interactive SAT assist demo with discreet answer overlay settings and sandbox isolation visual.",
-      category: "page",
-      priceUsd: 0,
-    },
-    {
       name: "Blog",
       path: "/blog",
       seoTitle: `Exam Prep Blog | SAT ACT Proctoring Guides — ExamHub ${YEAR}`,

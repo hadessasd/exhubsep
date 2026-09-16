@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivateRouteImport } from './routes/activate'
 import { Route as AdminRouteImport } from './routes/admin'
-import { Route as DemoRouteImport } from './routes/demo'
 import { Route as InternshipsRouteImport } from './routes/internships'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OrdersRouteImport } from './routes/orders'
@@ -20,6 +19,7 @@ import { Route as ResearchRouteImport } from './routes/research'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as ApiShowcaseVideosRouteImport } from './routes/api/showcase-videos'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as CategoryCatRouteImport } from './routes/category/$cat'
@@ -30,6 +30,7 @@ import { Route as ApiAdminDeliveryRouteImport } from './routes/api/admin/deliver
 import { Route as ApiAdminPaymentLinksRouteImport } from './routes/api/admin/payment-links'
 import { Route as ApiAdminPreviewActivateRouteImport } from './routes/api/admin/preview-activate'
 import { Route as ApiAdminProjectsRouteImport } from './routes/api/admin/projects'
+import { Route as ApiAdminShowcaseVideosRouteImport } from './routes/api/admin/showcase-videos'
 import { Route as ApiAdminSimulateRouteImport } from './routes/api/admin/simulate'
 import { Route as ApiAuthIndexRouteImport } from './routes/api/auth/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -41,11 +42,13 @@ import { Route as ApiWhitelistActivateRouteImport } from './routes/api/whitelist
 import { Route as ApiWhitelistRequestRouteImport } from './routes/api/whitelist/request'
 import { Route as ApiWhitelistVerifyRouteImport } from './routes/api/whitelist/verify'
 import { Route as ApiAdminRerouteLogsRouteImport } from './routes/api/admin/reroute/logs'
+import { Route as ApiAdminWhitelistAuthKeysRouteImport } from './routes/api/admin/whitelist/auth-keys'
 import { Route as ApiAdminWhitelistExportRouteImport } from './routes/api/admin/whitelist/export'
 import { Route as ApiAdminWhitelistImportRouteImport } from './routes/api/admin/whitelist/import'
 import { Route as ApiAdminWhitelistJsonRouteImport } from './routes/api/admin/whitelist/json'
 import { Route as ApiAdminWhitelistMachinesRouteImport } from './routes/api/admin/whitelist/machines'
 import { Route as ApiDeliveryFileIdRouteImport } from './routes/api/delivery/file.$id'
+import { Route as ApiShowcaseVideosFileCategoryRouteImport } from './routes/api/showcase-videos/file.$category'
 import { Route as ApiAdminWhitelistMachinesIdRouteImport } from './routes/api/admin/whitelist/machines.$id'
 import { Route as ApiAdminWhitelistMachinesIdRegenerateTokenRouteImport } from './routes/api/admin/whitelist/machines.$id.regenerate-token'
 
@@ -62,11 +65,6 @@ const ActivateRoute = ActivateRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemoRoute = DemoRouteImport.update({
-  id: '/demo',
-  path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InternshipsRoute = InternshipsRouteImport.update({
@@ -102,6 +100,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const VerifyRoute = VerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShowcaseVideosRoute = ApiShowcaseVideosRouteImport.update({
+  id: '/api/showcase-videos',
+  path: '/api/showcase-videos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
@@ -152,6 +155,11 @@ const ApiAdminPreviewActivateRoute = ApiAdminPreviewActivateRouteImport.update({
 const ApiAdminProjectsRoute = ApiAdminProjectsRouteImport.update({
   id: '/api/admin/projects',
   path: '/api/admin/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminShowcaseVideosRoute = ApiAdminShowcaseVideosRouteImport.update({
+  id: '/api/admin/showcase-videos',
+  path: '/api/admin/showcase-videos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminSimulateRoute = ApiAdminSimulateRouteImport.update({
@@ -209,6 +217,12 @@ const ApiAdminRerouteLogsRoute = ApiAdminRerouteLogsRouteImport.update({
   path: '/api/admin/reroute/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminWhitelistAuthKeysRoute =
+  ApiAdminWhitelistAuthKeysRouteImport.update({
+    id: '/api/admin/whitelist/auth-keys',
+    path: '/api/admin/whitelist/auth-keys',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAdminWhitelistExportRoute = ApiAdminWhitelistExportRouteImport.update({
   id: '/api/admin/whitelist/export',
   path: '/api/admin/whitelist/export',
@@ -235,6 +249,12 @@ const ApiDeliveryFileIdRoute = ApiDeliveryFileIdRouteImport.update({
   path: '/api/delivery/file/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiShowcaseVideosFileCategoryRoute =
+  ApiShowcaseVideosFileCategoryRouteImport.update({
+    id: '/file/$category',
+    path: '/file/$category',
+    getParentRoute: () => ApiShowcaseVideosRoute,
+  } as any)
 const ApiAdminWhitelistMachinesIdRoute =
   ApiAdminWhitelistMachinesIdRouteImport.update({
     id: '/$id',
@@ -252,7 +272,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/admin': typeof AdminRoute
-  '/demo': typeof DemoRoute
   '/internships': typeof InternshipsRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -260,6 +279,7 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify': typeof VerifyRoute
+  '/api/showcase-videos': typeof ApiShowcaseVideosRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/category/$cat': typeof CategoryCatRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -270,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
   '/api/admin/preview-activate': typeof ApiAdminPreviewActivateRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
+  '/api/admin/showcase-videos': typeof ApiAdminShowcaseVideosRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/payment-links/$slug': typeof ApiPaymentLinksSlugRoute
@@ -281,11 +302,13 @@ export interface FileRoutesByFullPath {
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth/': typeof ApiAuthIndexRoute
   '/api/admin/reroute/logs': typeof ApiAdminRerouteLogsRoute
+  '/api/admin/whitelist/auth-keys': typeof ApiAdminWhitelistAuthKeysRoute
   '/api/admin/whitelist/export': typeof ApiAdminWhitelistExportRoute
   '/api/admin/whitelist/import': typeof ApiAdminWhitelistImportRoute
   '/api/admin/whitelist/json': typeof ApiAdminWhitelistJsonRoute
   '/api/admin/whitelist/machines': typeof ApiAdminWhitelistMachinesRouteWithChildren
   '/api/delivery/file/$id': typeof ApiDeliveryFileIdRoute
+  '/api/showcase-videos/file/$category': typeof ApiShowcaseVideosFileCategoryRoute
   '/api/admin/whitelist/machines/$id': typeof ApiAdminWhitelistMachinesIdRouteWithChildren
   '/api/admin/whitelist/machines/$id/regenerate-token': typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
 }
@@ -293,7 +316,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/admin': typeof AdminRoute
-  '/demo': typeof DemoRoute
   '/internships': typeof InternshipsRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -301,6 +323,7 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify': typeof VerifyRoute
+  '/api/showcase-videos': typeof ApiShowcaseVideosRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/category/$cat': typeof CategoryCatRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -311,6 +334,7 @@ export interface FileRoutesByTo {
   '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
   '/api/admin/preview-activate': typeof ApiAdminPreviewActivateRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
+  '/api/admin/showcase-videos': typeof ApiAdminShowcaseVideosRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/payment-links/$slug': typeof ApiPaymentLinksSlugRoute
@@ -322,11 +346,13 @@ export interface FileRoutesByTo {
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth': typeof ApiAuthIndexRoute
   '/api/admin/reroute/logs': typeof ApiAdminRerouteLogsRoute
+  '/api/admin/whitelist/auth-keys': typeof ApiAdminWhitelistAuthKeysRoute
   '/api/admin/whitelist/export': typeof ApiAdminWhitelistExportRoute
   '/api/admin/whitelist/import': typeof ApiAdminWhitelistImportRoute
   '/api/admin/whitelist/json': typeof ApiAdminWhitelistJsonRoute
   '/api/admin/whitelist/machines': typeof ApiAdminWhitelistMachinesRouteWithChildren
   '/api/delivery/file/$id': typeof ApiDeliveryFileIdRoute
+  '/api/showcase-videos/file/$category': typeof ApiShowcaseVideosFileCategoryRoute
   '/api/admin/whitelist/machines/$id': typeof ApiAdminWhitelistMachinesIdRouteWithChildren
   '/api/admin/whitelist/machines/$id/regenerate-token': typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
 }
@@ -335,7 +361,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/activate': typeof ActivateRoute
   '/admin': typeof AdminRoute
-  '/demo': typeof DemoRoute
   '/internships': typeof InternshipsRoute
   '/login': typeof LoginRoute
   '/orders': typeof OrdersRoute
@@ -343,6 +368,7 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/verify': typeof VerifyRoute
+  '/api/showcase-videos': typeof ApiShowcaseVideosRouteWithChildren
   '/blog/$slug': typeof BlogSlugRoute
   '/category/$cat': typeof CategoryCatRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -353,6 +379,7 @@ export interface FileRoutesById {
   '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
   '/api/admin/preview-activate': typeof ApiAdminPreviewActivateRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
+  '/api/admin/showcase-videos': typeof ApiAdminShowcaseVideosRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/payment-links/$slug': typeof ApiPaymentLinksSlugRoute
@@ -364,11 +391,13 @@ export interface FileRoutesById {
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth/': typeof ApiAuthIndexRoute
   '/api/admin/reroute/logs': typeof ApiAdminRerouteLogsRoute
+  '/api/admin/whitelist/auth-keys': typeof ApiAdminWhitelistAuthKeysRoute
   '/api/admin/whitelist/export': typeof ApiAdminWhitelistExportRoute
   '/api/admin/whitelist/import': typeof ApiAdminWhitelistImportRoute
   '/api/admin/whitelist/json': typeof ApiAdminWhitelistJsonRoute
   '/api/admin/whitelist/machines': typeof ApiAdminWhitelistMachinesRouteWithChildren
   '/api/delivery/file/$id': typeof ApiDeliveryFileIdRoute
+  '/api/showcase-videos/file/$category': typeof ApiShowcaseVideosFileCategoryRoute
   '/api/admin/whitelist/machines/$id': typeof ApiAdminWhitelistMachinesIdRouteWithChildren
   '/api/admin/whitelist/machines/$id/regenerate-token': typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
 }
@@ -378,7 +407,6 @@ export interface FileRouteTypes {
     | '/'
     | '/activate'
     | '/admin'
-    | '/demo'
     | '/internships'
     | '/login'
     | '/orders'
@@ -386,6 +414,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/verify'
+    | '/api/showcase-videos'
     | '/blog/$slug'
     | '/category/$cat'
     | '/products/$slug'
@@ -396,6 +425,7 @@ export interface FileRouteTypes {
     | '/api/admin/payment-links'
     | '/api/admin/preview-activate'
     | '/api/admin/projects'
+    | '/api/admin/showcase-videos'
     | '/api/admin/simulate'
     | '/api/auth/$'
     | '/api/payment-links/$slug'
@@ -407,11 +437,13 @@ export interface FileRouteTypes {
     | '/api/whitelist/verify'
     | '/api/auth/'
     | '/api/admin/reroute/logs'
+    | '/api/admin/whitelist/auth-keys'
     | '/api/admin/whitelist/export'
     | '/api/admin/whitelist/import'
     | '/api/admin/whitelist/json'
     | '/api/admin/whitelist/machines'
     | '/api/delivery/file/$id'
+    | '/api/showcase-videos/file/$category'
     | '/api/admin/whitelist/machines/$id'
     | '/api/admin/whitelist/machines/$id/regenerate-token'
   fileRoutesByTo: FileRoutesByTo
@@ -419,7 +451,6 @@ export interface FileRouteTypes {
     | '/'
     | '/activate'
     | '/admin'
-    | '/demo'
     | '/internships'
     | '/login'
     | '/orders'
@@ -427,6 +458,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/verify'
+    | '/api/showcase-videos'
     | '/blog/$slug'
     | '/category/$cat'
     | '/products/$slug'
@@ -437,6 +469,7 @@ export interface FileRouteTypes {
     | '/api/admin/payment-links'
     | '/api/admin/preview-activate'
     | '/api/admin/projects'
+    | '/api/admin/showcase-videos'
     | '/api/admin/simulate'
     | '/api/auth/$'
     | '/api/payment-links/$slug'
@@ -448,11 +481,13 @@ export interface FileRouteTypes {
     | '/api/whitelist/verify'
     | '/api/auth'
     | '/api/admin/reroute/logs'
+    | '/api/admin/whitelist/auth-keys'
     | '/api/admin/whitelist/export'
     | '/api/admin/whitelist/import'
     | '/api/admin/whitelist/json'
     | '/api/admin/whitelist/machines'
     | '/api/delivery/file/$id'
+    | '/api/showcase-videos/file/$category'
     | '/api/admin/whitelist/machines/$id'
     | '/api/admin/whitelist/machines/$id/regenerate-token'
   id:
@@ -460,7 +495,6 @@ export interface FileRouteTypes {
     | '/'
     | '/activate'
     | '/admin'
-    | '/demo'
     | '/internships'
     | '/login'
     | '/orders'
@@ -468,6 +502,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/verify'
+    | '/api/showcase-videos'
     | '/blog/$slug'
     | '/category/$cat'
     | '/products/$slug'
@@ -478,6 +513,7 @@ export interface FileRouteTypes {
     | '/api/admin/payment-links'
     | '/api/admin/preview-activate'
     | '/api/admin/projects'
+    | '/api/admin/showcase-videos'
     | '/api/admin/simulate'
     | '/api/auth/$'
     | '/api/payment-links/$slug'
@@ -489,11 +525,13 @@ export interface FileRouteTypes {
     | '/api/whitelist/verify'
     | '/api/auth/'
     | '/api/admin/reroute/logs'
+    | '/api/admin/whitelist/auth-keys'
     | '/api/admin/whitelist/export'
     | '/api/admin/whitelist/import'
     | '/api/admin/whitelist/json'
     | '/api/admin/whitelist/machines'
     | '/api/delivery/file/$id'
+    | '/api/showcase-videos/file/$category'
     | '/api/admin/whitelist/machines/$id'
     | '/api/admin/whitelist/machines/$id/regenerate-token'
   fileRoutesById: FileRoutesById
@@ -502,7 +540,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivateRoute: typeof ActivateRoute
   AdminRoute: typeof AdminRoute
-  DemoRoute: typeof DemoRoute
   InternshipsRoute: typeof InternshipsRoute
   LoginRoute: typeof LoginRoute
   OrdersRoute: typeof OrdersRoute
@@ -510,6 +547,7 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VerifyRoute: typeof VerifyRoute
+  ApiShowcaseVideosRoute: typeof ApiShowcaseVideosRouteWithChildren
   BlogSlugRoute: typeof BlogSlugRoute
   CategoryCatRoute: typeof CategoryCatRoute
   ProductsSlugRoute: typeof ProductsSlugRoute
@@ -520,6 +558,7 @@ export interface RootRouteChildren {
   ApiAdminPaymentLinksRoute: typeof ApiAdminPaymentLinksRoute
   ApiAdminPreviewActivateRoute: typeof ApiAdminPreviewActivateRoute
   ApiAdminProjectsRoute: typeof ApiAdminProjectsRoute
+  ApiAdminShowcaseVideosRoute: typeof ApiAdminShowcaseVideosRoute
   ApiAdminSimulateRoute: typeof ApiAdminSimulateRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiPaymentLinksSlugRoute: typeof ApiPaymentLinksSlugRoute
@@ -531,6 +570,7 @@ export interface RootRouteChildren {
   ApiWhitelistVerifyRoute: typeof ApiWhitelistVerifyRoute
   ApiAuthIndexRoute: typeof ApiAuthIndexRoute
   ApiAdminRerouteLogsRoute: typeof ApiAdminRerouteLogsRoute
+  ApiAdminWhitelistAuthKeysRoute: typeof ApiAdminWhitelistAuthKeysRoute
   ApiAdminWhitelistExportRoute: typeof ApiAdminWhitelistExportRoute
   ApiAdminWhitelistImportRoute: typeof ApiAdminWhitelistImportRoute
   ApiAdminWhitelistJsonRoute: typeof ApiAdminWhitelistJsonRoute
@@ -559,13 +599,6 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demo': {
-      id: '/demo'
-      path: '/demo'
-      fullPath: '/demo'
-      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/internships': {
@@ -615,6 +648,13 @@ declare module '@tanstack/react-router' {
       path: '/verify'
       fullPath: '/verify'
       preLoaderRoute: typeof VerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/showcase-videos': {
+      id: '/api/showcase-videos'
+      path: '/api/showcase-videos'
+      fullPath: '/api/showcase-videos'
+      preLoaderRoute: typeof ApiShowcaseVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/': {
@@ -685,6 +725,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/projects'
       fullPath: '/api/admin/projects'
       preLoaderRoute: typeof ApiAdminProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/showcase-videos': {
+      id: '/api/admin/showcase-videos'
+      path: '/api/admin/showcase-videos'
+      fullPath: '/api/admin/showcase-videos'
+      preLoaderRoute: typeof ApiAdminShowcaseVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/simulate': {
@@ -764,6 +811,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminRerouteLogsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/whitelist/auth-keys': {
+      id: '/api/admin/whitelist/auth-keys'
+      path: '/api/admin/whitelist/auth-keys'
+      fullPath: '/api/admin/whitelist/auth-keys'
+      preLoaderRoute: typeof ApiAdminWhitelistAuthKeysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/whitelist/export': {
       id: '/api/admin/whitelist/export'
       path: '/api/admin/whitelist/export'
@@ -799,6 +853,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDeliveryFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/showcase-videos/file/$category': {
+      id: '/api/showcase-videos/file/$category'
+      path: '/file/$category'
+      fullPath: '/api/showcase-videos/file/$category'
+      preLoaderRoute: typeof ApiShowcaseVideosFileCategoryRouteImport
+      parentRoute: typeof ApiShowcaseVideosRoute
+    }
     '/api/admin/whitelist/machines/$id': {
       id: '/api/admin/whitelist/machines/$id'
       path: '/$id'
@@ -815,6 +876,17 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ApiShowcaseVideosRouteChildren {
+  ApiShowcaseVideosFileCategoryRoute: typeof ApiShowcaseVideosFileCategoryRoute
+}
+
+const ApiShowcaseVideosRouteChildren: ApiShowcaseVideosRouteChildren = {
+  ApiShowcaseVideosFileCategoryRoute: ApiShowcaseVideosFileCategoryRoute,
+}
+
+const ApiShowcaseVideosRouteWithChildren =
+  ApiShowcaseVideosRoute._addFileChildren(ApiShowcaseVideosRouteChildren)
 
 interface ApiAdminWhitelistMachinesIdRouteChildren {
   ApiAdminWhitelistMachinesIdRegenerateTokenRoute: typeof ApiAdminWhitelistMachinesIdRegenerateTokenRoute
@@ -850,7 +922,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivateRoute: ActivateRoute,
   AdminRoute: AdminRoute,
-  DemoRoute: DemoRoute,
   InternshipsRoute: InternshipsRoute,
   LoginRoute: LoginRoute,
   OrdersRoute: OrdersRoute,
@@ -858,6 +929,7 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VerifyRoute: VerifyRoute,
+  ApiShowcaseVideosRoute: ApiShowcaseVideosRouteWithChildren,
   BlogSlugRoute: BlogSlugRoute,
   CategoryCatRoute: CategoryCatRoute,
   ProductsSlugRoute: ProductsSlugRoute,
@@ -868,6 +940,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminPaymentLinksRoute: ApiAdminPaymentLinksRoute,
   ApiAdminPreviewActivateRoute: ApiAdminPreviewActivateRoute,
   ApiAdminProjectsRoute: ApiAdminProjectsRoute,
+  ApiAdminShowcaseVideosRoute: ApiAdminShowcaseVideosRoute,
   ApiAdminSimulateRoute: ApiAdminSimulateRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiPaymentLinksSlugRoute: ApiPaymentLinksSlugRoute,
@@ -879,6 +952,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiWhitelistVerifyRoute: ApiWhitelistVerifyRoute,
   ApiAuthIndexRoute: ApiAuthIndexRoute,
   ApiAdminRerouteLogsRoute: ApiAdminRerouteLogsRoute,
+  ApiAdminWhitelistAuthKeysRoute: ApiAdminWhitelistAuthKeysRoute,
   ApiAdminWhitelistExportRoute: ApiAdminWhitelistExportRoute,
   ApiAdminWhitelistImportRoute: ApiAdminWhitelistImportRoute,
   ApiAdminWhitelistJsonRoute: ApiAdminWhitelistJsonRoute,

@@ -4,7 +4,6 @@ import {
   BookOpen,
   GraduationCap,
   Menu,
-  Search,
   Shield,
   X,
   LayoutDashboard,
@@ -13,7 +12,8 @@ import {
   Briefcase,
   Trophy,
   Wrench,
-  Play,
+  Send,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -23,42 +23,43 @@ import { checkIsAdmin } from "@/lib/server/examhub";
 import { cn } from "@/lib/utils";
 import { SUPPORT_TELEGRAM, SUPPORT_TELEGRAM_URL } from "@/lib/data/catalog";
 
-type NavItem =
-  | {
-      kind: "cat";
-      cat: "sat" | "act" | "proctoring" | "contests" | "tools";
-      label: string;
-      icon: typeof GraduationCap;
-    }
-  | {
-      kind: "path";
-      to: "/research" | "/internships" | "/blog" | "/demo";
-      label: string;
-      icon: typeof FileText;
-      highlight?: boolean;
-    };
+type CatItem = {
+  kind: "cat";
+  cat: "sat" | "act" | "gmat" | "gre" | "proctoring";
+  label: string;
+  icon: typeof GraduationCap;
+};
 
-const NAV: NavItem[] = [
+type PathItem = {
+  kind: "path";
+  to: "/research" | "/internships" | "/blog";
+  label: string;
+  icon: typeof FileText;
+};
+
+type ExtraCat = {
+  kind: "cat";
+  cat: "contests" | "tools";
+  label: string;
+  icon: typeof Trophy;
+};
+
+/** Primary exam pathways — always visible on desktop */
+const PRIMARY: CatItem[] = [
   { kind: "cat", cat: "sat", label: "SAT", icon: GraduationCap },
   { kind: "cat", cat: "act", label: "ACT", icon: BookOpen },
+  { kind: "cat", cat: "gre", label: "GRE", icon: BookOpen },
+  { kind: "cat", cat: "gmat", label: "GMAT", icon: GraduationCap },
   { kind: "cat", cat: "proctoring", label: "Proctor", icon: Shield },
+];
+
+/** Secondary links — desktop “More” + full mobile list */
+const MORE: Array<PathItem | ExtraCat> = [
   { kind: "cat", cat: "contests", label: "Contests", icon: Trophy },
-  { kind: "path", to: "/demo", label: "Demo", icon: Play },
-  {
-    kind: "path",
-    to: "/research",
-    label: "Research",
-    icon: FileText,
-    highlight: true,
-  },
-  {
-    kind: "path",
-    to: "/internships",
-    label: "Internships",
-    icon: Briefcase,
-    highlight: true,
-  },
   { kind: "cat", cat: "tools", label: "Tools", icon: Wrench },
+  { kind: "path", to: "/research", label: "Research", icon: FileText },
+  { kind: "path", to: "/internships", label: "Internships", icon: Briefcase },
+  { kind: "path", to: "/blog", label: "Blog", icon: FileText },
 ];
 
 const ADMIN_CACHE = "examhub.is-admin";
@@ -66,6 +67,7 @@ const ADMIN_CACHE = "examhub.is-admin";
 export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) {
   const { user, isPending } = useCurrentUserState();
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -75,7 +77,6 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
     }
   });
 
-  // Resolve admin once session is ready — sticky, no flip-flop on errors
   useEffect(() => {
     if (isPending) return;
     if (!user) {
@@ -100,18 +101,52 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
         }
       })
       .catch(() => {
-        // Keep previous isAdmin on network blip — don't flash off
+        /* keep previous */
       });
     return () => {
       cancelled = true;
     };
   }, [user?.id, isPending]);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // Close “More” on outside click / escape
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    const onClick = () => setMoreOpen(false);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("click", onClick);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("click", onClick);
+    };
+  }, [moreOpen]);
+
+  function closeMobile() {
+    setOpen(false);
+  }
+
   return (
-    <header className="sticky top-0 z-50 w-full max-w-[100vw] border-b border-border/80 bg-surface/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 w-full max-w-6xl min-w-0 items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6">
-        <Link to="/" className="group flex min-w-0 shrink-0 items-center gap-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-fg shadow-md transition-transform group-hover:scale-105 sm:h-9 sm:w-9 sm:rounded-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-surface/90 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/75">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:h-16 sm:px-6">
+        {/* Brand */}
+        <Link
+          to="/"
+          className="group flex shrink-0 items-center gap-2"
+          onClick={closeMobile}
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-fg shadow-md transition-transform group-hover:scale-105 sm:h-9 sm:w-9">
             <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight text-fg sm:text-xl">
@@ -119,69 +154,101 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
           </span>
         </Link>
 
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 lg:flex">
-          {NAV.map((item) =>
-            item.kind === "cat" ? (
-              <Link
-                key={item.cat}
-                to="/category/$cat"
-                params={{ cat: item.cat }}
-                className="rounded-lg px-2 py-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:bg-primary-soft hover:text-primary xl:px-2.5"
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <Link
-                key={item.to}
-                to={item.to}
+        {/* Desktop primary nav */}
+        <nav className="ml-2 hidden flex-1 items-center justify-center gap-0.5 md:flex lg:gap-1">
+          {PRIMARY.map((item) => (
+            <Link
+              key={item.cat}
+              to="/category/$cat"
+              params={{ cat: item.cat }}
+              className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-fg-muted transition-colors hover:bg-primary-soft hover:text-primary lg:px-3"
+            >
+              {item.label}
+            </Link>
+          ))}
+
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors lg:px-3",
+                moreOpen
+                  ? "bg-primary-soft text-primary"
+                  : "text-fg-muted hover:bg-primary-soft hover:text-primary",
+              )}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              More
+              <ChevronDown
                 className={cn(
-                  "rounded-lg px-2 py-1.5 text-[13px] font-medium transition-colors xl:px-2.5",
-                  item.highlight
-                    ? "bg-primary-soft/70 font-semibold text-primary hover:bg-primary-soft"
-                    : "text-fg-muted hover:bg-primary-soft hover:text-primary",
+                  "h-3.5 w-3.5 transition-transform",
+                  moreOpen && "rotate-180",
                 )}
+              />
+            </button>
+            {moreOpen ? (
+              <div
+                role="menu"
+                className="absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2 rounded-2xl border border-border bg-surface p-1.5 shadow-xl"
               >
-                {item.label}
-              </Link>
-            ),
-          )}
+                {MORE.map((item) =>
+                  item.kind === "cat" ? (
+                    <Link
+                      key={item.cat}
+                      to="/category/$cat"
+                      params={{ cat: item.cat }}
+                      role="menuitem"
+                      onClick={() => setMoreOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-fg hover:bg-primary-soft hover:text-primary"
+                    >
+                      <item.icon className="h-4 w-4 text-primary" />
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      role="menuitem"
+                      onClick={() => setMoreOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-fg hover:bg-primary-soft hover:text-primary"
+                    >
+                      <item.icon className="h-4 w-4 text-primary" />
+                      {item.label}
+                    </Link>
+                  ),
+                )}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
-        <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
+        {/* Right actions */}
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <a
             href={SUPPORT_TELEGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden h-9 items-center rounded-xl border border-primary/30 bg-primary-soft px-2.5 text-xs font-semibold text-primary sm:inline-flex"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-primary/25 bg-primary-soft px-2.5 text-xs font-semibold text-primary transition-colors hover:border-primary/50 sm:px-3"
+            aria-label={`Telegram @${SUPPORT_TELEGRAM}`}
           >
-            Telegram
+            <Send className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Telegram</span>
           </a>
-          <Link
-            to="/"
-            hash="catalog"
-            className="hidden h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-fg-muted shadow-sm transition-colors hover:border-primary/40 hover:text-primary sm:flex"
-            aria-label="Search catalog"
-          >
-            <Search className="h-4 w-4" />
-          </Link>
 
-          {/* Reserve stable width — never swap Sign in ↔ skeleton mid-session */}
           {user ? (
-            <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               <NotificationBell />
-              <Link
-                to="/orders"
-                search={{ placed: undefined, tab: undefined }}
-                className="hidden sm:block"
-              >
-                <Button variant="ghost" size="sm" className="h-9 px-2.5">
+              <Link to="/orders" search={{ placed: undefined, tab: undefined }} className="hidden lg:block">
+                <Button variant="ghost" size="sm" className="h-9 gap-1.5 px-2.5">
                   <Package className="h-4 w-4" />
-                  <span className="hidden md:inline">Dashboard</span>
+                  <span>Orders</span>
                 </Button>
               </Link>
               {isAdmin ? (
-                <Link to="/admin">
-                  <Button variant="secondary" size="sm" className="h-9 px-2.5">
+                <Link to="/admin" className="hidden sm:block">
+                  <Button variant="secondary" size="sm" className="h-9 gap-1.5 px-2.5">
                     <LayoutDashboard className="h-4 w-4" />
                     <span className="hidden md:inline">Admin</span>
                   </Button>
@@ -190,9 +257,9 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
               <UserButton compact />
             </div>
           ) : isPending ? (
-            <div className="h-9 w-20 shrink-0 rounded-xl bg-bg-soft/80" aria-hidden />
+            <div className="h-9 w-[4.5rem] shrink-0 rounded-xl bg-bg-soft/80" aria-hidden />
           ) : (
-            <Link to="/login">
+            <Link to="/login" className="hidden sm:block">
               <Button size="sm" className="h-9">
                 Sign in
               </Button>
@@ -201,88 +268,118 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
 
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-fg lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-surface text-fg md:hidden"
             onClick={() => setOpen((v) => !v)}
-            aria-label="Menu"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
-      <div
-        className={cn(
-          "w-full border-t border-border bg-surface lg:hidden",
-          open ? "block" : "hidden",
-        )}
-      >
-        <nav className="mx-auto flex max-w-6xl flex-col gap-1 p-3">
-          {NAV.map((item) =>
-            item.kind === "cat" ? (
-              <Link
-                key={item.cat}
-                to="/category/$cat"
-                params={{ cat: item.cat }}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
-              >
-                <item.icon className="h-4 w-4 text-primary" />
-                {item.label}
-              </Link>
-            ) : (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
-              >
-                <item.icon className="h-4 w-4 text-primary" />
-                {item.label}
-              </Link>
-            ),
-          )}
-          <a
-            href={SUPPORT_TELEGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-primary hover:bg-primary-soft"
-          >
-            Telegram · @{SUPPORT_TELEGRAM}
-          </a>
-          {user ? (
-            <>
-              <Link
-                to="/orders"
-                search={{ placed: undefined, tab: undefined }}
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
-              >
-                <Package className="h-4 w-4 text-primary" />
-                Dashboard
-              </Link>
-              {isAdmin ? (
+      {/* Mobile sheet */}
+      {open ? (
+        <div className="fixed inset-0 top-14 z-40 md:hidden" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            aria-label="Dismiss menu"
+            onClick={closeMobile}
+          />
+          <div className="absolute inset-x-0 top-0 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-border bg-surface shadow-2xl">
+            <nav className="mx-auto flex max-w-6xl flex-col gap-1 p-3 pb-6">
+              <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+                Pathways
+              </p>
+              {PRIMARY.map((item) => (
                 <Link
-                  to="/admin"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
+                  key={item.cat}
+                  to="/category/$cat"
+                  params={{ cat: item.cat }}
+                  onClick={closeMobile}
+                  className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-fg hover:bg-primary-soft"
                 >
-                  <LayoutDashboard className="h-4 w-4 text-primary" />
-                  Admin
+                  <item.icon className="h-4 w-4 text-primary" />
+                  {item.label}
                 </Link>
-              ) : null}
-            </>
-          ) : (
-            <Link
-              to="/login"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
-            >
-              Sign in
-            </Link>
-          )}
-        </nav>
-      </div>
+              ))}
+
+              <p className="mt-2 px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted">
+                More
+              </p>
+              {MORE.map((item) =>
+                item.kind === "cat" ? (
+                  <Link
+                    key={item.cat}
+                    to="/category/$cat"
+                    params={{ cat: item.cat }}
+                    onClick={closeMobile}
+                    className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
+                  >
+                    <item.icon className="h-4 w-4 text-primary" />
+                    {item.label}
+                  </Link>
+                ) : (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={closeMobile}
+                    className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
+                  >
+                    <item.icon className="h-4 w-4 text-primary" />
+                    {item.label}
+                  </Link>
+                ),
+              )}
+
+              <div className="mt-3 space-y-1 border-t border-border pt-3">
+                <a
+                  href={SUPPORT_TELEGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={closeMobile}
+                  className="flex min-h-11 items-center gap-3 rounded-xl bg-primary-soft px-3 py-2.5 text-sm font-semibold text-primary"
+                >
+                  <Send className="h-4 w-4" />
+                  Telegram · @{SUPPORT_TELEGRAM}
+                </a>
+                {user ? (
+                  <>
+                    <Link
+                      to="/orders"
+                      search={{ placed: undefined, tab: undefined }}
+                      onClick={closeMobile}
+                      className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
+                    >
+                      <Package className="h-4 w-4 text-primary" />
+                      Orders
+                    </Link>
+                    {isAdmin ? (
+                      <Link
+                        to="/admin"
+                        onClick={closeMobile}
+                        className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-primary-soft"
+                      >
+                        <LayoutDashboard className="h-4 w-4 text-primary" />
+                        Admin
+                      </Link>
+                    ) : null}
+                  </>
+                ) : (
+                  <Link
+                    to="/login"
+                    onClick={closeMobile}
+                    className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-3 py-2.5 text-sm font-semibold text-primary-fg"
+                  >
+                    Sign in
+                  </Link>
+                )}
+              </div>
+            </nav>
+          </div>
+        </div>
+      ) : null}
     </header>
   );
 }
