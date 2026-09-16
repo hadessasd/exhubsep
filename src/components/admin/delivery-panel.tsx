@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Apple, Link2, Monitor, RefreshCw, Shield, Trash2, Upload } from "lucide-react";
+import { BuyerPreviewCard } from "@/components/admin/buyer-preview-modal";
 
 type Asset = {
   id: string;
@@ -181,6 +182,42 @@ export function DeliveryPanel() {
     setClearFileBlob(false);
   }
 
+  /** Keep scope_key + label in sync with Category × Tier × OS. */
+  function syncScope(nextCat: string, nextTier: string, nextOs: string) {
+    const cat = nextCat.trim().toLowerCase() || "sat";
+    const t = nextTier.trim().toLowerCase() || "all";
+    const o = nextOs.trim().toLowerCase() || "macos";
+    setCategory(cat);
+    setTier(t);
+    setOs(o);
+
+    if (cat === "proctor") {
+      const sk =
+        o === "all" ? "proctor-universal" : `proctor-universal-${o}`;
+      setScopeKey(sk);
+      setLabel(
+        o === "all"
+          ? "Proctor · Universal (all lockdown tools)"
+          : `Proctor · Universal · ${o === "macos" ? "macOS" : "Windows"} build`,
+      );
+      return;
+    }
+
+    const osPart = o === "all" ? "all" : o;
+    const sk = `${cat}-${t}-${osPart}`;
+    setScopeKey(sk);
+    const catLabel = cat.toUpperCase();
+    const tierLabel =
+      t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1);
+    const osLabel =
+      o === "macos" ? "macOS" : o === "windows" ? "Windows" : "All OS";
+    setLabel(
+      t === "all"
+        ? `All ${catLabel} · ${osLabel}`
+        : `${catLabel} ${tierLabel} · ${osLabel}`,
+    );
+  }
+
   async function onFilePick(file: File | null) {
     if (!file) return;
     if (file.size > 40 * 1024 * 1024) {
@@ -257,6 +294,8 @@ export function DeliveryPanel() {
           Refresh
         </Button>
       </div>
+
+      <BuyerPreviewCard />
 
       <Card>
         <CardHeader>
@@ -394,12 +433,15 @@ export function DeliveryPanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">macOS / Windows coverage</CardTitle>
+          <CardTitle className="text-base">
+            Category-wide delivery (All SAT / ACT / …)
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="mb-3 text-xs text-fg-muted">
-            Green = asset saved for that OS. Click a cell to load the preset and
-            upload/link the build.
+            Assign one build for <strong>all tiers</strong> in a category
+            (<code className="font-mono">sat-all-macos</code>, etc.). Green =
+            assigned. Tier-specific overrides (SAT Pro only) still win when set.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[520px] text-left text-xs">
@@ -498,7 +540,7 @@ export function DeliveryPanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Save delivery asset</CardTitle>
+          <CardTitle className="text-base">Save delivery asset · category or tier</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={save} className="grid gap-3 sm:grid-cols-2">
@@ -521,45 +563,72 @@ export function DeliveryPanel() {
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Scope key</Label>
-              <Input
-                required
-                value={scopeKey}
-                onChange={(e) => setScopeKey(e.target.value)}
-                className="font-mono text-xs"
-                placeholder="sat-all-macos"
-              />
-              <p className="text-[10px] text-muted">
-                Pattern: exam-tier-os · e.g. gmat-pro-windows, gre-premium-macos
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Label</Label>
-              <Input
-                required
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Category</Label>
-              <Input
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="sat | act | gmat | gre | proctor"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Tier</Label>
-              <Input
-                value={tier}
-                onChange={(e) => setTier(e.target.value)}
-                placeholder="standard | pro | premium | all"
-              />
-            </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Target OS (required for exam apps)</Label>
+              <Label>Category</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    ["sat", "SAT"],
+                    ["act", "ACT"],
+                    ["gre", "GRE"],
+                    ["gmat", "GMAT"],
+                    ["proctor", "Proctor"],
+                  ] as const
+                ).map(([value, labelText]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      syncScope(value, value === "proctor" ? "all" : tier === "universal" ? "all" : tier, os)
+                    }
+                    className={`rounded-xl border-2 px-3 py-2 text-sm font-bold ${
+                      category === value
+                        ? "border-primary bg-primary-soft text-primary"
+                        : "border-border bg-surface text-fg-muted hover:border-primary/40"
+                    }`}
+                  >
+                    {labelText}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Scope · tier</Label>
+              <p className="text-[11px] text-fg-muted">
+                <strong>All category</strong> covers every tier (Standard/Pro/Premium)
+                for this exam. Buyer of e.g. SAT Pro uses tier-specific delivery if
+                set, otherwise falls back to All SAT.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  category === "proctor"
+                    ? ([["all", "All proctor (universal)"]] as const)
+                    : ([
+                        ["all", `All ${category.toUpperCase()}`],
+                        ["standard", `${category.toUpperCase()} Standard only`],
+                        ["pro", `${category.toUpperCase()} Pro only`],
+                        ["premium", `${category.toUpperCase()} Premium only`],
+                      ] as const)
+                ).map(([value, labelText]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => syncScope(category, value, os)}
+                    className={`rounded-xl border-2 px-3 py-2 text-xs font-bold sm:text-sm ${
+                      (category === "proctor" ? "all" : tier) === value
+                        ? "border-primary bg-primary-soft text-primary"
+                        : "border-border bg-surface text-fg-muted hover:border-primary/40"
+                    }`}
+                  >
+                    {labelText}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Target OS</Label>
               <div className="grid grid-cols-3 gap-2">
                 {(
                   [
@@ -571,26 +640,7 @@ export function DeliveryPanel() {
                   <button
                     key={value}
                     type="button"
-                    onClick={() => {
-                      setOs(value);
-                      // Keep scope key in sync when editing exam presets
-                      const parts = scopeKey.split("-");
-                      if (parts.length >= 3 && parts[0] !== "proctor") {
-                        const next = `${parts[0]}-${parts[1]}-${value === "all" ? "all" : value}`;
-                        setScopeKey(next);
-                      } else if (parts[0] === "proctor") {
-                        setScopeKey(
-                          value === "all"
-                            ? "proctor-universal"
-                            : `proctor-universal-${value}`,
-                        );
-                        setLabel(
-                          value === "all"
-                            ? "Proctor · Universal (all lockdown tools)"
-                            : `Proctor · Universal · ${labelText} build`,
-                        );
-                      }
-                    }}
+                    onClick={() => syncScope(category, tier, value)}
                     className={`flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-bold transition ${
                       os === value
                         ? "border-primary bg-primary-soft text-primary"
@@ -602,6 +652,30 @@ export function DeliveryPanel() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Scope key</Label>
+              <Input
+                required
+                value={scopeKey}
+                onChange={(e) => setScopeKey(e.target.value)}
+                className="font-mono text-xs"
+                placeholder="sat-all-macos"
+              />
+              <p className="text-[10px] text-muted">
+                Auto-built from Category × Tier × OS (editable). Examples:{" "}
+                <code>sat-all-macos</code>, <code>act-pro-windows</code>,{" "}
+                <code>proctor-universal</code>.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Label</Label>
+              <Input
+                required
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>External download link</Label>
@@ -682,8 +756,8 @@ export function DeliveryPanel() {
           <p className="text-sm text-muted">Loading…</p>
         ) : assets.length === 0 ? (
           <p className="text-sm text-muted">
-            None yet. Use presets — e.g. “All SAT · macOS” with one file for
-            every SAT purchase on Mac.
+            None yet. Prefer “All SAT · macOS” (category-wide) for one file
+            across Standard/Pro/Premium, or pick a tier-only scope when needed.
           </p>
         ) : (
           assets.map((a) => (

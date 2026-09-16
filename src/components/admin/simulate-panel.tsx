@@ -14,6 +14,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn, formatUsd } from "@/lib/utils";
+import { BuyerPreviewCard } from "@/components/admin/buyer-preview-modal";
 
 type Preset = {
   id: string;
@@ -153,6 +154,8 @@ export function SimulatePanel() {
 
   return (
     <div className="space-y-6">
+      <BuyerPreviewCard />
+
       <div>
         <h2 className="flex items-center gap-2 font-display text-xl font-bold text-fg">
           <FlaskConical className="h-5 w-5 text-primary" />

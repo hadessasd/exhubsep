@@ -363,11 +363,14 @@ export async function deleteDeliveryAsset(id: string): Promise<void> {
 /**
  * Resolve best delivery asset for a purchase.
  *
- * Exam apps (SAT/ACT/GMAT/GRE): scoped by exam + tier + OS
- *   exact exam-tier-os → exam-all-os → exam-tier-all → exam-all-all
+ * Exam apps (SAT/ACT/GMAT/GRE) — priority:
+ *   1. exact exam-tier-os   (e.g. sat-pro-macos)     — tier-specific
+ *   2. exam-all-os         (e.g. sat-all-macos)     — **all category** for that OS
+ *   3. exam-tier-all       (e.g. sat-pro-all)       — tier, any OS
+ *   4. exam-all-all        (e.g. sat-all-all)       — entire category, any OS
  *
- * Proctor / lockdown tools: ALWAYS use the shared universal delivery pack
- *   proctor-universal-{os} → proctor-universal (not per-exam siloed)
+ * Proctor / lockdown tools: shared universal pack
+ *   proctor-universal-{os} → proctor-universal (category-wide, not per-exam)
  */
 export async function resolveDeliveryAssets(opts: {
   productKey: string;

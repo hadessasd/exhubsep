@@ -91,11 +91,12 @@ export const Route = createFileRoute("/api/whitelist/activate")({
             status: result.status,
             machineId: result.machineId,
             productKey: result.productKey,
+            category: result.productKey,
             keyName: result.keyName,
             serialBound: result.serialBound,
             authKeyBurned: result.authKeyBurned,
             message:
-              "Auth key burned. Serial is on this purchase product whitelist. Use POST /api/whitelist/verify with machineId + productKey.",
+              "Auth key burned. Serial is on this purchase software category whitelist. Use POST /api/whitelist/verify with machineId + category.",
           });
         } catch (err) {
           const message =

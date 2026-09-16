@@ -859,54 +859,112 @@ export const CATEGORIES: {
   },
 ];
 
-/** Product ids that get an automatic per-package machine whitelist. */
+/**
+ * Software machine whitelist scopes (category-level, not tier/version).
+ * - general: serial keys that authorize any software category
+ * - sat | act | gre | gmat | proctor: one whitelist per exam/software family
+ * Research / internship / leaks / non-software catalog items are excluded.
+ */
 export const GENERAL_WHITELIST_KEY = "general" as const;
 
-const WHITELIST_CATEGORIES = new Set([
+export const SOFTWARE_WHITELIST_CATEGORIES = [
   "sat",
   "act",
-  "gmat",
   "gre",
-  "proctoring",
-  "bundle",
-  "contests",
-  "tools",
-]);
+  "gmat",
+  "proctor",
+] as const;
 
+export type SoftwareWhitelistCategory =
+  (typeof SOFTWARE_WHITELIST_CATEGORIES)[number];
+
+const SOFTWARE_CATEGORY_SET = new Set<string>(SOFTWARE_WHITELIST_CATEGORIES);
+
+/** Map any purchase product id / exam / alias → whitelist category (or general). */
+export function whitelistCategoryFromProductKey(
+  productKey: string | null | undefined,
+): string {
+  const k = (productKey || "").trim().toLowerCase();
+  if (!k || k === "general" || k === "global") return GENERAL_WHITELIST_KEY;
+  if (SOFTWARE_CATEGORY_SET.has(k)) return k;
+
+  // Exam family prefixes / bare tiers (legacy amount fallback → SAT)
+  if (k === "standard" || k === "pro" || k === "premium") return "sat";
+  if (k === "sat" || k.startsWith("sat-") || k.startsWith("sat_")) return "sat";
+  if (k === "act" || k.startsWith("act-") || k.startsWith("act_")) return "act";
+  if (k === "gre" || k.startsWith("gre-") || k.startsWith("gre_")) return "gre";
+  if (k === "gmat" || k.startsWith("gmat-") || k.startsWith("gmat_")) return "gmat";
+
+  // Proctor / lockdown software family
+  if (
+    k === "proctor" ||
+    k === "proctoring" ||
+    k.startsWith("proctor") ||
+    k.includes("lockdown") ||
+    k.includes("honorlock") ||
+    k.includes("proctorio") ||
+    k.includes("respondus") ||
+    k.startsWith("tool-") ||
+    k.startsWith("contest-")
+  ) {
+    return "proctor";
+  }
+
+  // Bundles spanning exams → general (authorizes any software)
+  if (k.includes("bundle")) return GENERAL_WHITELIST_KEY;
+
+  // Research / internship / other non-software → not used for machine whitelist
+  if (
+    k === "research" ||
+    k.startsWith("research") ||
+    k === "internship" ||
+    k.startsWith("intern")
+  ) {
+    return GENERAL_WHITELIST_KEY;
+  }
+
+  return GENERAL_WHITELIST_KEY;
+}
+
+/** Admin tabs: General + software categories only (no Standard/Pro/Premium). */
 export function listWhitelistPackages(): Array<{
   id: string;
   label: string;
   category: string;
 }> {
-  const packages = PRODUCTS.filter((p) => WHITELIST_CATEGORIES.has(p.category)).map(
-    (p) => ({
-      id: p.id,
-      label: p.name,
-      category: p.category,
-    }),
-  );
   return [
     {
       id: GENERAL_WHITELIST_KEY,
-      label: "General (global)",
+      label: "General (serial keys · any software)",
       category: "general",
     },
-    ...packages,
+    { id: "sat", label: "SAT software", category: "sat" },
+    { id: "act", label: "ACT software", category: "act" },
+    { id: "gre", label: "GRE software", category: "gre" },
+    { id: "gmat", label: "GMAT software", category: "gmat" },
+    { id: "proctor", label: "Proctor / lockdown software", category: "proctor" },
   ];
 }
 
+/**
+ * Resolve whitelist category from productKey, explicit category, or exam (+ optional tier ignored).
+ * Tier is intentionally ignored — SAT Pro and SAT Standard share category `sat`.
+ */
 export function resolveWhitelistProductKey(input: {
   productKey?: string | null;
+  category?: string | null;
   exam?: string | null;
   tier?: string | null;
 }): string {
-  const direct = (input.productKey || "").trim().toLowerCase();
-  if (direct) return direct;
+  const cat = (input.category || "").trim().toLowerCase();
+  if (cat === "proctoring") return "proctor";
+  if (cat && (SOFTWARE_CATEGORY_SET.has(cat) || cat === GENERAL_WHITELIST_KEY)) {
+    return cat;
+  }
   const exam = (input.exam || "").trim().toLowerCase();
-  const tier = (input.tier || "").trim().toLowerCase();
-  if (exam && tier) return `${exam}-${tier}`;
-  if (exam) return exam;
-  return GENERAL_WHITELIST_KEY;
+  if (exam && SOFTWARE_CATEGORY_SET.has(exam)) return exam;
+  if (exam === "proctoring") return "proctor";
+  return whitelistCategoryFromProductKey(input.productKey);
 }
 
 export function getProductBySlug(slug: string): Product | undefined {

@@ -19,6 +19,7 @@ import {
   clientIp,
   json,
   jsonError,
+  whitelistCategoryFromProductKey,
 } from "@/lib/server/whitelist";
 
 function tierFromKey(
@@ -298,13 +299,18 @@ export const Route = createFileRoute("/api/activate/session")({
 
           // A serial belongs to one paid activation. Retrying the same session is
           // safe/idempotent; a different paid session cannot silently steal it.
-          const alreadyRegistered = await findMachineByInput(serial, productKey);
+          // Whitelist scope is software category (sat/act/gre/gmat/proctor), not tier
+          const whitelistCategory = whitelistCategoryFromProductKey(productKey);
+          const alreadyRegistered = await findMachineByInput(
+            serial,
+            whitelistCategory,
+          );
           if (
             alreadyRegistered?.stripeSessionId &&
             alreadyRegistered.stripeSessionId !== sessionId
           ) {
             return jsonError(
-              `This serial is already registered to another purchase on ${productKey}`,
+              `This serial is already registered to another purchase on ${whitelistCategory}`,
               409,
             );
           }
@@ -354,7 +360,7 @@ export const Route = createFileRoute("/api/activate/session")({
             forever: true,
             os,
             lastIp: await clientIp(request),
-            productKey,
+            productKey: whitelistCategory,
             source: "stripe",
             stripeSessionId: sessionId,
             rawSerialNote: null,
@@ -395,6 +401,7 @@ export const Route = createFileRoute("/api/activate/session")({
               status: "active",
               os,
               productKey,
+              whitelistCategory,
             },
             authCode,
             delivery: mapDeliveryAssets(assets),

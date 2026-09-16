@@ -8,13 +8,10 @@ import {
 } from "@/lib/server/whitelist";
 
 /**
- * Public verify:
- * - POST JSON { machineId, productKey? }  (app /activate tooling)
- * - GET  ?machineId=…&productKey=…        (Daemon alternate path)
- *
- * Product scope: when productKey (or exam+tier) is sent, the serial must be
- * whitelisted for that package (e.g. sat-pro). A serial on sat-pro does NOT
- * authorize gre-pro. product_key=general still authorizes any package.
+ * Public verify (software category scope):
+ * - POST JSON { machineId, category?: "sat"|"act"|"gre"|"gmat"|"proctor" }
+ * - productKey like "sat-pro" is accepted and mapped → "sat"
+ * - general serials authorize any software category
  */
 export const Route = createFileRoute("/api/whitelist/verify")({
   server: {
@@ -27,15 +24,18 @@ export const Route = createFileRoute("/api/whitelist/verify")({
             url.searchParams.get("machineId")?.trim() ||
             url.searchParams.get("machine_id")?.trim();
           if (!machineId) return jsonError("machineId required", 400);
+          const category =
+            url.searchParams.get("category")?.trim() || undefined;
           const productKey =
             url.searchParams.get("productKey")?.trim() ||
             url.searchParams.get("product_key")?.trim() ||
             undefined;
           const exam = url.searchParams.get("exam")?.trim() || undefined;
           const tier = url.searchParams.get("tier")?.trim() || undefined;
-          if (productKey || exam) {
+          if (category || productKey || exam) {
             const result = await verifyMachine({
               machineId,
+              category,
               productKey,
               exam,
               tier,
@@ -67,18 +67,23 @@ export const Route = createFileRoute("/api/whitelist/verify")({
             hostname?: string;
             os?: string;
             isAdmin?: string;
+            category?: string;
             productKey?: string;
             product_key?: string;
             exam?: string;
             tier?: string;
-            /** if true, auto-create pending when unknown (general scope) */
             autoPending?: boolean;
           };
           if (!body.machineId?.trim()) {
             return jsonError("machineId required", 400);
           }
           const productKey = body.productKey || body.product_key;
-          if (body.autoPending && !productKey && !body.exam) {
+          if (
+            body.autoPending &&
+            !body.category &&
+            !productKey &&
+            !body.exam
+          ) {
             const result = await daemonAuthCheck({
               machineId: body.machineId,
               hostname: body.hostname,
@@ -95,6 +100,7 @@ export const Route = createFileRoute("/api/whitelist/verify")({
             hostname: body.hostname,
             os: body.os,
             isAdmin: body.isAdmin,
+            category: body.category,
             productKey,
             exam: body.exam,
             tier: body.tier,

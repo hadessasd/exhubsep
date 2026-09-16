@@ -11,16 +11,26 @@ import {
   GENERAL_WHITELIST_KEY,
   listWhitelistPackages,
   resolveWhitelistProductKey,
+  whitelistCategoryFromProductKey,
+  SOFTWARE_WHITELIST_CATEGORIES,
 } from "@/lib/data/catalog";
 
-export { GENERAL_WHITELIST_KEY, listWhitelistPackages, resolveWhitelistProductKey };
+export {
+  GENERAL_WHITELIST_KEY,
+  listWhitelistPackages,
+  resolveWhitelistProductKey,
+  whitelistCategoryFromProductKey,
+  SOFTWARE_WHITELIST_CATEGORIES,
+};
 
-/** Normalize empty / null product keys to the general (global) whitelist. */
+/**
+ * Normalize any product id / alias to a software whitelist category
+ * (`general` | `sat` | `act` | `gre` | `gmat` | `proctor`).
+ */
 export function normalizeWhitelistProductKey(
   productKey: string | null | undefined,
 ): string {
-  const k = (productKey || "").trim().toLowerCase();
-  return k || GENERAL_WHITELIST_KEY;
+  return whitelistCategoryFromProductKey(productKey);
 }
 
 export type MachineRow = {
@@ -117,6 +127,44 @@ CREATE TABLE IF NOT EXISTS machine_whitelist (
       await sql.query(
         `UPDATE machine_whitelist SET product_key = 'general' WHERE product_key IS NULL OR trim(product_key) = ''`,
       );
+      // Remap legacy per-tier keys (sat-pro, act-standard, …) → category
+      await sql.query(`
+UPDATE machine_whitelist SET product_key = 'sat'
+ WHERE product_key IN ('standard','pro','premium')
+    OR product_key = 'sat'
+    OR product_key LIKE 'sat-%'
+    OR product_key LIKE 'sat_%'`);
+      await sql.query(`
+UPDATE machine_whitelist SET product_key = 'act'
+ WHERE product_key = 'act' OR product_key LIKE 'act-%' OR product_key LIKE 'act_%'`);
+      await sql.query(`
+UPDATE machine_whitelist SET product_key = 'gre'
+ WHERE product_key = 'gre' OR product_key LIKE 'gre-%' OR product_key LIKE 'gre_%'`);
+      await sql.query(`
+UPDATE machine_whitelist SET product_key = 'gmat'
+ WHERE product_key = 'gmat' OR product_key LIKE 'gmat-%' OR product_key LIKE 'gmat_%'`);
+      await sql.query(`
+UPDATE machine_whitelist SET product_key = 'proctor'
+ WHERE product_key = 'proctor' OR product_key = 'proctoring'
+    OR product_key LIKE 'proctor%'
+    OR product_key LIKE 'tool-%'
+    OR product_key LIKE 'contest-%'
+    OR product_key LIKE '%lockdown%'
+    OR product_key LIKE '%honorlock%'
+    OR product_key LIKE '%proctorio%'`);
+      await sql.query(`
+UPDATE machine_whitelist SET product_key = 'general'
+ WHERE product_key LIKE 'bundle%'
+    OR product_key = 'research' OR product_key LIKE 'research%'
+    OR product_key = 'internship' OR product_key LIKE 'intern%'`);
+      // Dedupe after remap (keep newest row per hash+category)
+      await sql.query(`
+DELETE FROM machine_whitelist a
+ USING machine_whitelist b
+ WHERE a.machine_id_hash IS NOT NULL
+   AND a.machine_id_hash = b.machine_id_hash
+   AND a.product_key = b.product_key
+   AND a.created_at < b.created_at`);
       try {
         await sql.query(
           `ALTER TABLE machine_whitelist ALTER COLUMN product_key SET DEFAULT 'general'`,
@@ -500,10 +548,11 @@ export async function requestVerification(input: {
 
 /**
  * Public verify — client sends the raw serial; server hashes it with SHA-256 before lookup.
- * When productKey (or exam+tier) is provided, authorization is product-scoped:
- *   - row.product_key must equal the requested package, OR
- *   - row.product_key === "general" (global admin whitelist still authorizes any package)
- * Without product context, any matching active serial row authorizes (backward compatible).
+ * Software authorization is **category**-scoped (`sat` | `act` | `gre` | `gmat` | `proctor`):
+ *   - row.product_key must equal the requested category, OR
+ *   - row.product_key === "general" (serial keys on General authorize any software)
+ * `productKey` like `sat-pro` is mapped to category `sat` for app compatibility.
+ * Without category/product context, any active row for that serial authorizes (compat).
  */
 export async function verifyMachine(input: {
   machineId: string;
@@ -512,6 +561,9 @@ export async function verifyMachine(input: {
   hostname?: string;
   os?: string;
   isAdmin?: string;
+  /** Preferred: software category (`sat`, `act`, …). */
+  category?: string | null;
+  /** Compat: full product id (`sat-pro`) — mapped to category. */
   productKey?: string | null;
   exam?: string | null;
   tier?: string | null;
@@ -524,6 +576,7 @@ export async function verifyMachine(input: {
   expiresAt?: string | null;
   reason?: string;
   productKey?: string | null;
+  category?: string | null;
 }> {
   if (!input.machineId?.trim()) {
     return {
@@ -537,10 +590,12 @@ export async function verifyMachine(input: {
   const sql = await getSql();
   const requestedScope = resolveWhitelistProductKey({
     productKey: input.productKey,
+    category: input.category,
     exam: input.exam,
     tier: input.tier,
   });
   const hasExplicitProduct =
+    Boolean(input.category?.trim()) ||
     Boolean(input.productKey?.trim()) ||
     Boolean(input.exam?.trim());
 
@@ -647,6 +702,7 @@ export async function verifyMachine(input: {
     sessionToken: m.sessionToken,
     expiresAt: m.expiresAt,
     productKey: m.productKey,
+    category: m.productKey,
   };
 }
 
@@ -886,7 +942,7 @@ export type RedeemAuthInput = {
  * 2) Whitelist serial (SHA-256 digest)
  * 3) Persist hostname, IP, approx location
  * 4) Burn auth key (session_token → NULL) so it cannot be reused
- * Subsequent checks use POST /api/whitelist/verify with serial + productKey.
+ * Subsequent checks use POST /api/whitelist/verify with serial + category.
  */
 export async function redeemAuthKey(input: RedeemAuthInput): Promise<{
   ok: true;

@@ -12,33 +12,140 @@
 Checkout calls `/api/payment-links/:slug`, which resolves admin override → catalog default → empty, then appends `client_reference_id`.
 
 
-## General vs per-product whitelists
 
-- **`general`** — global whitelist (legacy / aggregate view). Admin → Machines → **General** tab shows all machines. A serial on `general` authorizes **any** product package.
-- **Per-product packages** — one automatic whitelist per sellable catalog id (`sat-standard`, `act-pro`, `gmat-premium`, `gre-pro`, each `proctor-…` tool, bundles, contests, tools). Tabs appear from the catalog — no manual create.
-- Stripe `/activate` and macOS redeem bind the serial to the **purchase `product_key`** (e.g. ACT Pro → `act-pro` only).
-- Unique constraint: `(machine_id_hash, product_key)` — same Mac can be on SAT Pro and ACT Standard separately.
+## Admin buyer preview
 
-### Verify (product-scoped)
+Admin → **Simulate** (top card) and Admin → **Delivery** include **Preview buyer experience**:
 
-```bash
-curl -sS -X POST https://examhub.shop/api/whitelist/verify \
-  -H 'content-type: application/json' \
-  -d '{"machineId":"C02ABC123XYZ","productKey":"sat-pro"}'
+1. Select a catalog package (e.g. `sat-pro`, `act-standard`, `gre-premium`, a proctor tool).
+2. Choose buyer OS (macOS / Windows).
+3. **Open buyer popup** — modal mirrors post-purchase `/activate` (payment chip, activated card, auth code, app downloads / instructions).
+
+Delivery uses the same `resolveDeliveryAssets` / `resolveDeliveryAssetsBothOs` as real activate. The auth code is a labeled `PREVIEW_…` sample — **not** stored, **not** redeemable, and no Stripe session is created.
+
+API: `GET /api/admin/preview-activate?productKey=sat-pro&os=macos` (admin auth). `?list=1` returns catalog packages for the picker.
+
+
+## Delivery scope (category-wide vs tier)
+
+Admin → Delivery can assign:
+
+- **All category** — e.g. `sat-all-macos`, `act-all-windows` (covers Standard/Pro/Premium)
+- **Tier-only** — e.g. `sat-pro-macos` (overrides all-category when present)
+- **Proctor universal** — `proctor-universal` / `proctor-universal-macos`
+
+Buyer of `sat-pro` on macOS: `sat-pro-macos` → else `sat-all-macos` → else broader fallbacks.
+
+Whitelist stays **category-level** (`sat`); delivery may still be tier- or all-category-scoped.
+
+## Software whitelist (category scope)
+
+Software machine authorization is **category-level**, not Standard/Pro/Premium:
+
+| Whitelist key | Meaning |
+|---------------|---------|
+| `general` | Serial-number keys — authorize **any** software category |
+| `sat` | All SAT purchases (Standard / Pro / Premium) |
+| `act` | All ACT purchases |
+| `gre` | All GRE purchases |
+| `gmat` | All GMAT purchases |
+| `proctor` | Proctor / lockdown browser software |
+
+Research papers, internships, and other non-software catalog items do **not** get whitelist tabs or category scopes.
+
+Delivery assets remain per exam **tier** + OS (`sat-pro-macos`, …). Whitelist authorization is category-only.
+
+Admin → Machines: **General** + **SAT / ACT / GRE / GMAT / Proctor** tabs (no per-tier whitelist tabs).
+
+### Redeem (one-time) — macOS app
+
+`POST /api/whitelist/activate`
+
+```http
+POST /api/whitelist/activate HTTP/1.1
+Host: examhub.shop
+Content-Type: application/json
+
+{
+  "authKey": "a1b2c3d4e5f6…",
+  "serialNumber": "C02ABC123XYZ",
+  "hostname": "Khals-MacBook-Pro.local",
+  "ip": "203.0.113.10",
+  "approxLocation": "Dubai, AE"
+}
 ```
 
-Also accepted: `exam` + `tier` (e.g. `"exam":"sat","tier":"pro"`).
+Category comes from the purchase bound to the auth key (SAT Pro → category `sat`). Success sketch:
 
-| Scenario | Result |
-|----------|--------|
-| Serial on `sat-pro`, verify `sat-pro` | authorized |
-| Serial on `sat-pro`, verify `gre-pro` | **not** authorized |
-| Serial on `general`, verify any package | authorized |
-| No `productKey` in request | any active row for that serial authorizes (compat) |
+```json
+{
+  "ok": true,
+  "authorized": true,
+  "status": "active",
+  "machineId": "m_…",
+  "productKey": "sat",
+  "category": "sat",
+  "serialBound": true,
+  "authKeyBurned": true
+}
+```
 
-### Admin authorize
+After success the auth key cannot be reused. Later checks use verify with the serial + category.
 
-Machines panel: pick **General** or a package tab → add/approve serials. Saves with `productKey` for that scope.
+### Verify — ongoing app checks
+
+`POST /api/whitelist/verify`
+
+```http
+POST /api/whitelist/verify HTTP/1.1
+Host: examhub.shop
+Content-Type: application/json
+
+{
+  "machineId": "C02ABC123XYZ",
+  "category": "sat"
+}
+```
+
+Compat: `"productKey": "sat-pro"` is accepted and mapped → `sat`.
+
+Success sketch:
+
+```json
+{
+  "ok": true,
+  "authorized": true,
+  "status": "active",
+  "keyName": "SAT pro · macos · paid",
+  "productKey": "sat",
+  "category": "sat"
+}
+```
+
+| Serial on | Verify category | Result |
+|-----------|-----------------|--------|
+| `sat` | `sat` | authorized |
+| `sat` | `gre` | **not** authorized |
+| `general` | any software category | authorized |
+
+```bash
+# Redeem
+curl -sS -X POST https://examhub.shop/api/whitelist/activate \
+  -H 'content-type: application/json' \
+  -d '{
+    "authKey": "PASTE_AUTH_CODE",
+    "serialNumber": "C02ABC123XYZ",
+    "hostname": "Khals-MacBook-Pro.local",
+    "ip": "203.0.113.10",
+    "approxLocation": "Dubai, AE"
+  }'
+
+# Verify
+curl -sS -X POST https://examhub.shop/api/whitelist/verify \
+  -H 'content-type: application/json' \
+  -d '{"machineId":"C02ABC123XYZ","category":"sat"}'
+```
+
 
 ## Serial verification
 
@@ -47,7 +154,7 @@ The client sends the raw serial to ExamHub. ExamHub trims it, uppercases it, SHA
 POST `https://examhub.shop/api/whitelist/verify`
 
 ```json
-{"machineId":"C02ABC123XYZ","productKey":"sat-pro"}
+{"machineId":"C02ABC123XYZ","category":"sat"}
 ```
 
 Omit `productKey` only for legacy clients; macOS apps should always send the package id.

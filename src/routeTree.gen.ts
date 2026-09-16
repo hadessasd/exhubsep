@@ -28,6 +28,7 @@ import { Route as ProgressTokenRouteImport } from './routes/progress.$token'
 import { Route as ApiActivateSessionRouteImport } from './routes/api/activate/session'
 import { Route as ApiAdminDeliveryRouteImport } from './routes/api/admin/delivery'
 import { Route as ApiAdminPaymentLinksRouteImport } from './routes/api/admin/payment-links'
+import { Route as ApiAdminPreviewActivateRouteImport } from './routes/api/admin/preview-activate'
 import { Route as ApiAdminProjectsRouteImport } from './routes/api/admin/projects'
 import { Route as ApiAdminSimulateRouteImport } from './routes/api/admin/simulate'
 import { Route as ApiAuthIndexRouteImport } from './routes/api/auth/index'
@@ -141,6 +142,11 @@ const ApiAdminDeliveryRoute = ApiAdminDeliveryRouteImport.update({
 const ApiAdminPaymentLinksRoute = ApiAdminPaymentLinksRouteImport.update({
   id: '/api/admin/payment-links',
   path: '/api/admin/payment-links',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminPreviewActivateRoute = ApiAdminPreviewActivateRouteImport.update({
+  id: '/api/admin/preview-activate',
+  path: '/api/admin/preview-activate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminProjectsRoute = ApiAdminProjectsRouteImport.update({
@@ -262,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/api/activate/session': typeof ApiActivateSessionRoute
   '/api/admin/delivery': typeof ApiAdminDeliveryRoute
   '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
+  '/api/admin/preview-activate': typeof ApiAdminPreviewActivateRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/api/activate/session': typeof ApiActivateSessionRoute
   '/api/admin/delivery': typeof ApiAdminDeliveryRoute
   '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
+  '/api/admin/preview-activate': typeof ApiAdminPreviewActivateRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/api/activate/session': typeof ApiActivateSessionRoute
   '/api/admin/delivery': typeof ApiAdminDeliveryRoute
   '/api/admin/payment-links': typeof ApiAdminPaymentLinksRoute
+  '/api/admin/preview-activate': typeof ApiAdminPreviewActivateRoute
   '/api/admin/projects': typeof ApiAdminProjectsRoute
   '/api/admin/simulate': typeof ApiAdminSimulateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -385,6 +394,7 @@ export interface FileRouteTypes {
     | '/api/activate/session'
     | '/api/admin/delivery'
     | '/api/admin/payment-links'
+    | '/api/admin/preview-activate'
     | '/api/admin/projects'
     | '/api/admin/simulate'
     | '/api/auth/$'
@@ -425,6 +435,7 @@ export interface FileRouteTypes {
     | '/api/activate/session'
     | '/api/admin/delivery'
     | '/api/admin/payment-links'
+    | '/api/admin/preview-activate'
     | '/api/admin/projects'
     | '/api/admin/simulate'
     | '/api/auth/$'
@@ -465,6 +476,7 @@ export interface FileRouteTypes {
     | '/api/activate/session'
     | '/api/admin/delivery'
     | '/api/admin/payment-links'
+    | '/api/admin/preview-activate'
     | '/api/admin/projects'
     | '/api/admin/simulate'
     | '/api/auth/$'
@@ -506,6 +518,7 @@ export interface RootRouteChildren {
   ApiActivateSessionRoute: typeof ApiActivateSessionRoute
   ApiAdminDeliveryRoute: typeof ApiAdminDeliveryRoute
   ApiAdminPaymentLinksRoute: typeof ApiAdminPaymentLinksRoute
+  ApiAdminPreviewActivateRoute: typeof ApiAdminPreviewActivateRoute
   ApiAdminProjectsRoute: typeof ApiAdminProjectsRoute
   ApiAdminSimulateRoute: typeof ApiAdminSimulateRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -658,6 +671,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/payment-links'
       fullPath: '/api/admin/payment-links'
       preLoaderRoute: typeof ApiAdminPaymentLinksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/preview-activate': {
+      id: '/api/admin/preview-activate'
+      path: '/api/admin/preview-activate'
+      fullPath: '/api/admin/preview-activate'
+      preLoaderRoute: typeof ApiAdminPreviewActivateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/projects': {
@@ -846,6 +866,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiActivateSessionRoute: ApiActivateSessionRoute,
   ApiAdminDeliveryRoute: ApiAdminDeliveryRoute,
   ApiAdminPaymentLinksRoute: ApiAdminPaymentLinksRoute,
+  ApiAdminPreviewActivateRoute: ApiAdminPreviewActivateRoute,
   ApiAdminProjectsRoute: ApiAdminProjectsRoute,
   ApiAdminSimulateRoute: ApiAdminSimulateRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

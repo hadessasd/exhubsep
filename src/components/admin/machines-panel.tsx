@@ -394,10 +394,11 @@ export function MachinesPanel() {
             Machine Whitelist
           </h2>
           <p className="mt-1 text-sm font-medium text-fg-muted">
-            <strong>General</strong> is the global list (aggregate / legacy).
-            Each catalog package (SAT Pro, ACT Standard, …) has its own
-            automatic whitelist — authorize serials in the correct package tab.
-            Stripe activations land on the purchased product whitelist as{" "}
+            <strong>General</strong> holds serial-number keys that authorize{" "}
+            <em>any</em> software category. Software tabs are category-level
+            only (SAT / ACT / GRE / GMAT / Proctor) — Standard/Pro/Premium share
+            the same exam whitelist. Research & non-software items are excluded.
+            Stripe activations land on the purchase&apos;s software category as{" "}
             <strong>active</strong>.
           </p>
         </div>
@@ -449,7 +450,7 @@ export function MachinesPanel() {
         <CardContent className="space-y-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted">
-              Whitelist package
+              Whitelist category
             </p>
             <Input
               value={packageFilter}
@@ -490,11 +491,11 @@ export function MachinesPanel() {
               ))}
           </div>
           <p className="text-[11px] text-muted">
-            Active scope:{" "}
+            Active category:{" "}
             <code className="font-mono text-fg">{scope}</code>
             {scope === "general"
               ? " · showing all machines (aggregate view)"
-              : " · showing this package only"}
+              : " · showing this software category only"}
           </p>
         </CardContent>
       </Card>
@@ -521,7 +522,7 @@ export function MachinesPanel() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="formProductKey">Whitelist package</Label>
+                <Label htmlFor="formProductKey">Whitelist category</Label>
                 <Select
                   id="formProductKey"
                   value={formProductKey}
@@ -537,8 +538,8 @@ export function MachinesPanel() {
                   ))}
                 </Select>
                 <p className="text-[10px] text-muted">
-                  Serial is authorized only for this package (except General,
-                  which authorizes any app).
+                  Serial is authorized for this software category (General
+                  authorizes every software category).
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
