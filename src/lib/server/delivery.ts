@@ -362,7 +362,12 @@ export async function deleteDeliveryAsset(id: string): Promise<void> {
 
 /**
  * Resolve best delivery asset for a purchase.
- * Priority: exact exam-tier-os → exam-all-os → proctor product → proctor-universal
+ *
+ * Exam apps (SAT/ACT/GMAT/GRE): scoped by exam + tier + OS
+ *   exact exam-tier-os → exam-all-os → exam-tier-all → exam-all-all
+ *
+ * Proctor / lockdown tools: ALWAYS use the shared universal delivery pack
+ *   proctor-universal-{os} → proctor-universal (not per-exam siloed)
  */
 export async function resolveDeliveryAssets(opts: {
   productKey: string;
@@ -378,37 +383,66 @@ export async function resolveDeliveryAssets(opts: {
   const tier = (opts.tier || "").toLowerCase();
   const os = (opts.os || "").toLowerCase();
   const key = opts.productKey.toLowerCase();
+  const isProctor =
+    opts.kind === "proctor" ||
+    opts.kind === "tools" ||
+    key.includes("proctor") ||
+    key.includes("lockdown") ||
+    key.includes("honor") ||
+    key.includes("seb") ||
+    key.startsWith("tool");
+
+  if (isProctor) {
+    const scored = all
+      .map((a) => {
+        const sk = a.scopeKey.toLowerCase();
+        let score = 0;
+        if (os && sk === `proctor-universal-${os}`) score = 100;
+        else if (sk === "proctor-universal" || sk === "universal") score = 90;
+        else if (os && sk === `proctor-all-${os}`) score = 80;
+        else if (sk === `proctor-${key}` || sk === key) score = 40;
+        return { a, score };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+    if (scored.length) return [scored[0]!.a];
+    return all.filter((a) =>
+      ["proctor-universal", "universal"].includes(a.scopeKey.toLowerCase()),
+    );
+  }
 
   const scored = all
     .map((a) => {
       const sk = a.scopeKey.toLowerCase();
       let score = 0;
-      if (sk === `${exam}-${tier}-${os}`) score = 100;
-      else if (sk === `${exam}-all-${os}`) score = 90;
-      else if (sk === `${exam}-${tier}-all`) score = 85;
-      else if (sk === `${exam}-all-all`) score = 80;
-      else if (sk === `proctor-${key}` || sk === key) score = 70;
-      else if (sk === "proctor-universal" || sk === "universal") score = 50;
-      else if (os && sk.endsWith(`-${os}`) && sk.includes(exam || "x")) score = 40;
+      if (exam && tier && os && sk === `${exam}-${tier}-${os}`) score = 100;
+      else if (exam && os && sk === `${exam}-all-${os}`) score = 90;
+      else if (exam && tier && sk === `${exam}-${tier}-all`) score = 85;
+      else if (exam && sk === `${exam}-all-all`) score = 80;
+      else if (os && sk.endsWith(`-${os}`) && exam && sk.startsWith(`${exam}-`))
+        score = 60;
       else score = 0;
       return { a, score };
     })
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  if (!scored.length) {
-    // fallback: any proctor-universal
-    return all.filter((a) =>
-      ["proctor-universal", "universal"].includes(a.scopeKey.toLowerCase()),
-    );
-  }
-  // return top match + universal if different
-  const top = scored[0]!.a;
-  const uni = all.find((a) => a.scopeKey.toLowerCase() === "proctor-universal");
-  if (uni && uni.id !== top.id && (opts.kind === "proctor" || !exam)) {
-    return [top, uni];
-  }
-  return [top];
+  if (!scored.length) return [];
+  return [scored[0]!.a];
+}
+
+/** Resolve delivery for both macOS and Windows (activate UI can offer both). */
+export async function resolveDeliveryAssetsBothOs(opts: {
+  productKey: string;
+  exam?: string | null;
+  tier?: string | null;
+  kind?: string;
+}): Promise<{ macos: DeliveryAsset[]; windows: DeliveryAsset[] }> {
+  const [macos, windows] = await Promise.all([
+    resolveDeliveryAssets({ ...opts, os: "macos" }),
+    resolveDeliveryAssets({ ...opts, os: "windows" }),
+  ]);
+  return { macos, windows };
 }
 
 /** Suggested scope keys for admin UI */
@@ -445,7 +479,9 @@ export const DELIVERY_SCOPE_PRESETS = [
   { scopeKey: "gre-premium-windows", label: "GRE Premium · Windows" },
   { scopeKey: "gre-all-macos", label: "All GRE · macOS" },
   { scopeKey: "gre-all-windows", label: "All GRE · Windows" },
-  { scopeKey: "proctor-universal", label: "All proctor tools · steps/file" },
+  { scopeKey: "proctor-universal", label: "Proctor · Universal (all lockdown tools)" },
+  { scopeKey: "proctor-universal-macos", label: "Proctor · Universal · macOS build" },
+  { scopeKey: "proctor-universal-windows", label: "Proctor · Universal · Windows build" },
 ] as const;
 
 /** Public download path for an uploaded delivery blob (no secrets). */

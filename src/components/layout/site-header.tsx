@@ -21,6 +21,7 @@ import { UserButton } from "@/lib/auth/gates";
 import { NotificationBell } from "@/components/notifications/notification-panel";
 import { checkIsAdmin } from "@/lib/server/examhub";
 import { cn } from "@/lib/utils";
+import { SUPPORT_TELEGRAM, SUPPORT_TELEGRAM_URL } from "@/lib/data/catalog";
 
 type NavItem =
   | {
@@ -148,7 +149,7 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
 
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">
           <a
-            href="https://t.me/SATBypass"
+            href={SUPPORT_TELEGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden h-9 items-center rounded-xl border border-primary/30 bg-primary-soft px-2.5 text-xs font-semibold text-primary sm:inline-flex"
@@ -241,13 +242,13 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
             ),
           )}
           <a
-            href="https://t.me/SATBypass"
+            href={SUPPORT_TELEGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-primary hover:bg-primary-soft"
           >
-            Telegram · t.me/SATBypass
+            Telegram · @{SUPPORT_TELEGRAM}
           </a>
           {user ? (
             <>

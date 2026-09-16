@@ -859,6 +859,56 @@ export const CATEGORIES: {
   },
 ];
 
+/** Product ids that get an automatic per-package machine whitelist. */
+export const GENERAL_WHITELIST_KEY = "general" as const;
+
+const WHITELIST_CATEGORIES = new Set([
+  "sat",
+  "act",
+  "gmat",
+  "gre",
+  "proctoring",
+  "bundle",
+  "contests",
+  "tools",
+]);
+
+export function listWhitelistPackages(): Array<{
+  id: string;
+  label: string;
+  category: string;
+}> {
+  const packages = PRODUCTS.filter((p) => WHITELIST_CATEGORIES.has(p.category)).map(
+    (p) => ({
+      id: p.id,
+      label: p.name,
+      category: p.category,
+    }),
+  );
+  return [
+    {
+      id: GENERAL_WHITELIST_KEY,
+      label: "General (global)",
+      category: "general",
+    },
+    ...packages,
+  ];
+}
+
+export function resolveWhitelistProductKey(input: {
+  productKey?: string | null;
+  exam?: string | null;
+  tier?: string | null;
+}): string {
+  const direct = (input.productKey || "").trim().toLowerCase();
+  if (direct) return direct;
+  const exam = (input.exam || "").trim().toLowerCase();
+  const tier = (input.tier || "").trim().toLowerCase();
+  if (exam && tier) return `${exam}-${tier}`;
+  if (exam) return exam;
+  return GENERAL_WHITELIST_KEY;
+}
+
 export function getProductBySlug(slug: string): Product | undefined {
   return PRODUCTS.find((p) => p.slug === slug || p.id === slug);
 }

@@ -10,6 +10,7 @@ import {
   createServiceProject,
   getProjectBySession,
   resolveDeliveryAssets,
+  resolveDeliveryAssetsBothOs,
 } from "@/lib/server/delivery";
 import {
   upsertMachine,
@@ -34,6 +35,25 @@ function tierFromKey(
   if (/(^|-)pro($|-)/.test(k) || k === "pro") return "pro";
   if (/(^|-)standard($|-)/.test(k) || k === "standard") return "standard";
   return "standard";
+}
+
+
+function mapDeliveryAssets(
+  assets: Awaited<ReturnType<typeof resolveDeliveryAssets>>,
+) {
+  return assets.map((a) => ({
+    label: a.label,
+    fileUrl: a.hasFileBlob
+      ? `/api/delivery/file/${a.id}`
+      : a.fileUrl || a.externalUrl,
+    message: a.message,
+    steps: a.steps,
+    instructions: a.instructions,
+    fileName: a.fileName,
+    hasUpload: a.hasFileBlob,
+    scopeKey: a.scopeKey,
+    os: a.os,
+  }));
 }
 
 export const Route = createFileRoute("/api/activate/session")({
@@ -134,6 +154,34 @@ export const Route = createFileRoute("/api/activate/session")({
             }));
           }
 
+          // Also resolve both OS packs so the UI can offer macOS + Windows downloads
+          let deliveryByOs: {
+            macos: ReturnType<typeof mapDeliveryAssets>;
+            windows: ReturnType<typeof mapDeliveryAssets>;
+          } = { macos: [], windows: [] };
+          if (classification.flow !== "progress") {
+            const both = await resolveDeliveryAssetsBothOs({
+              productKey: payment.productKey,
+              exam: classification.exam,
+              tier:
+                classification.tier ||
+                tierFromKey(payment.productKey, classification),
+              kind: classification.kind,
+            });
+            deliveryByOs = {
+              macos: mapDeliveryAssets(both.macos),
+              windows: mapDeliveryAssets(both.windows),
+            };
+            if (!delivery.length) {
+              delivery = [
+                ...deliveryByOs.macos,
+                ...deliveryByOs.windows.filter(
+                  (w) => !deliveryByOs.macos.some((m) => m.scopeKey === w.scopeKey),
+                ),
+              ];
+            }
+          }
+
           return json({
             ok: true,
             payment: {
@@ -167,6 +215,7 @@ export const Route = createFileRoute("/api/activate/session")({
               authCode: m.sessionToken,
             })),
             delivery,
+            deliveryByOs,
           });
         } catch (err) {
           return jsonError(err, 400);
@@ -249,12 +298,15 @@ export const Route = createFileRoute("/api/activate/session")({
 
           // A serial belongs to one paid activation. Retrying the same session is
           // safe/idempotent; a different paid session cannot silently steal it.
-          const alreadyRegistered = await findMachineByInput(serial);
+          const alreadyRegistered = await findMachineByInput(serial, productKey);
           if (
             alreadyRegistered?.stripeSessionId &&
             alreadyRegistered.stripeSessionId !== sessionId
           ) {
-            return jsonError("This serial is already registered to another purchase", 409);
+            return jsonError(
+              `This serial is already registered to another purchase on ${productKey}`,
+              409,
+            );
           }
           const samePaidActivation =
             alreadyRegistered?.stripeSessionId === sessionId &&
@@ -328,6 +380,13 @@ export const Route = createFileRoute("/api/activate/session")({
             authCode = refreshed.sessionToken;
           }
 
+          const both = await resolveDeliveryAssetsBothOs({
+            productKey,
+            exam,
+            tier,
+            kind: classification.kind,
+          });
+
           return json({
             ok: true,
             machine: {
@@ -338,17 +397,11 @@ export const Route = createFileRoute("/api/activate/session")({
               productKey,
             },
             authCode,
-            delivery: assets.map((a) => ({
-              label: a.label,
-              fileUrl: a.hasFileBlob
-                ? `/api/delivery/file/${a.id}`
-                : a.fileUrl || a.externalUrl,
-              message: a.message,
-              steps: a.steps,
-              instructions: a.instructions,
-              fileName: a.fileName,
-              hasUpload: a.hasFileBlob,
-            })),
+            delivery: mapDeliveryAssets(assets),
+            deliveryByOs: {
+              macos: mapDeliveryAssets(both.macos),
+              windows: mapDeliveryAssets(both.windows),
+            },
             remainingSerials: Math.max(
               0,
               payment.maxSerials - payment.consumeCount - (samePaidActivation ? 0 : 1),

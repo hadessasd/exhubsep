@@ -36,6 +36,13 @@ type Machine = {
   source?: string | null;
   stripeSessionId?: string | null;
   rawSerialNote?: string | null;
+  approxLocation?: string | null;
+};
+
+type WhitelistPackage = {
+  id: string;
+  label: string;
+  category: string;
 };
 
 async function fetchJson<T = unknown>(
@@ -92,8 +99,12 @@ function statusClass(status: string) {
 
 export function MachinesPanel() {
   const [machines, setMachines] = useState<Machine[]>([]);
+  const [packages, setPackages] = useState<WhitelistPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  /** general = global whitelist page; otherwise a catalog product id */
+  const [scope, setScope] = useState<string>("general");
+  const [packageFilter, setPackageFilter] = useState("");
   const [jsonOpen, setJsonOpen] = useState(false);
   const [jsonText, setJsonText] = useState("");
   const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
@@ -107,26 +118,44 @@ export function MachinesPanel() {
   const [expiresAt, setExpiresAt] = useState("");
   const [forever, setForever] = useState(true);
   const [note, setNote] = useState("");
+  const [formProductKey, setFormProductKey] = useState("general");
   const [saving, setSaving] = useState(false);
 
   const loadMachines = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchJson<Machine[]>("/api/admin/whitelist/machines");
-      setMachines(Array.isArray(data) ? data : []);
+      const qs = new URLSearchParams({ packages: "1" });
+      // General tab shows ALL rows (aggregate). Product tabs filter by package.
+      if (scope && scope !== "general") {
+        qs.set("productKey", scope);
+      }
+      const data = await fetchJson<
+        Machine[] | { machines: Machine[]; packages?: WhitelistPackage[] }
+      >(`/api/admin/whitelist/machines?${qs.toString()}`);
+      if (Array.isArray(data)) {
+        setMachines(data);
+      } else {
+        setMachines(Array.isArray(data.machines) ? data.machines : []);
+        if (data.packages?.length) setPackages(data.packages);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load machines");
       setMachines([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     void loadMachines();
     const t = setInterval(() => void loadMachines(), 15000);
     return () => clearInterval(t);
   }, [loadMachines]);
+
+  useEffect(() => {
+    // Keep add form scoped to the active tab
+    setFormProductKey(scope || "general");
+  }, [scope]);
 
   const stats = useMemo(() => {
     const total = machines.length;
@@ -173,6 +202,7 @@ export function MachinesPanel() {
     setExpiresAt("");
     setForever(true);
     setNote("");
+    setFormProductKey(scope || "general");
   }
 
   function editMachine(machine: Machine) {
@@ -183,6 +213,7 @@ export function MachinesPanel() {
     setHostname(machine.hostname || "");
     setStatus(machine.status || "active");
     setNote(machine.note || "");
+    setFormProductKey(machine.productKey || "general");
     if (machine.expiresAt) {
       setForever(false);
       const date = new Date(machine.expiresAt);
@@ -223,6 +254,7 @@ export function MachinesPanel() {
             forever || !expiresAt
               ? null
               : new Date(expiresAt).toISOString(),
+          productKey: formProductKey || "general",
         }),
       });
       toast.success(editId ? "Machine updated" : "Machine saved");
@@ -248,6 +280,7 @@ export function MachinesPanel() {
           status: "active",
           forever: true,
           expiresAt: null,
+          productKey: machine.productKey || "general",
         }),
       });
       toast.success("Approved · active forever");
@@ -269,6 +302,7 @@ export function MachinesPanel() {
           expiresAt: machine.expiresAt,
           note: machine.note,
           hostname: machine.hostname,
+          productKey: machine.productKey || "general",
         }),
       });
       toast.success("Terminated / blocked");
@@ -360,8 +394,11 @@ export function MachinesPanel() {
             Machine Whitelist
           </h2>
           <p className="mt-1 text-sm font-medium text-fg-muted">
-            Approve external requests, edit keys, import/export. Stripe
-            activations land as <strong>active</strong> automatically.
+            <strong>General</strong> is the global list (aggregate / legacy).
+            Each catalog package (SAT Pro, ACT Standard, …) has its own
+            automatic whitelist — authorize serials in the correct package tab.
+            Stripe activations land on the purchased product whitelist as{" "}
+            <strong>active</strong>.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -408,6 +445,60 @@ export function MachinesPanel() {
         </div>
       </div>
 
+      <Card>
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted">
+              Whitelist package
+            </p>
+            <Input
+              value={packageFilter}
+              onChange={(e) => setPackageFilter(e.target.value)}
+              placeholder="Filter packages…"
+              className="h-8 max-w-xs text-xs"
+            />
+          </div>
+          <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+            {(packages.length
+              ? packages
+              : [{ id: "general", label: "General (global)", category: "general" }]
+            )
+              .filter((p) => {
+                const q = packageFilter.trim().toLowerCase();
+                if (!q) return true;
+                return (
+                  p.id.toLowerCase().includes(q) ||
+                  p.label.toLowerCase().includes(q) ||
+                  p.category.toLowerCase().includes(q)
+                );
+              })
+              .map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setScope(p.id)}
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition",
+                    scope === p.id
+                      ? "border-primary bg-primary-soft text-primary"
+                      : "border-border bg-surface text-fg-muted hover:border-primary/40",
+                  )}
+                  title={p.id}
+                >
+                  {p.id === "general" ? "General" : p.label}
+                </button>
+              ))}
+          </div>
+          <p className="text-[11px] text-muted">
+            Active scope:{" "}
+            <code className="font-mono text-fg">{scope}</code>
+            {scope === "general"
+              ? " · showing all machines (aggregate view)"
+              : " · showing this package only"}
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -428,6 +519,27 @@ export function MachinesPanel() {
                   placeholder="e.g. SAT Pro · Client A"
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="formProductKey">Whitelist package</Label>
+                <Select
+                  id="formProductKey"
+                  value={formProductKey}
+                  onChange={(e) => setFormProductKey(e.target.value)}
+                >
+                  {(packages.length
+                    ? packages
+                    : [{ id: "general", label: "General (global)", category: "general" }]
+                  ).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.id === "general" ? "General (global)" : `${p.label} (${p.id})`}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-[10px] text-muted">
+                  Serial is authorized only for this package (except General,
+                  which authorizes any app).
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">

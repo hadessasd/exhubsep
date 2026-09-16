@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS product_payment_links (
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`,
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS stripe_session_id TEXT`,
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS raw_serial_note TEXT`,
+      `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS approx_location TEXT`,
     ]) {
       try {
         await sql.query(col);
@@ -167,9 +168,11 @@ export function classifyProductKey(key: string): {
   if (k === "internship" || k.startsWith("intern")) {
     return { kind: "internship", flow: "progress" };
   }
+  // Bare tier (amount fallback / shared Payment Link without exam prefix).
+  // Exam family must come from client_reference_id (`sat-pro`) or /activate exam pick.
   if (k === "premium" || k === "pro" || k === "standard") {
     return {
-      kind: "sat",
+      kind: "unknown",
       tier: k as "standard" | "pro" | "premium",
       flow: "os_serial",
     };

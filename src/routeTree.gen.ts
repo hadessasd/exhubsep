@@ -36,6 +36,7 @@ import { Route as ApiPaymentLinksSlugRouteImport } from './routes/api/payment-li
 import { Route as ApiProgressTokenRouteImport } from './routes/api/progress/$token'
 import { Route as ApiRerouteOpenrouterRouteImport } from './routes/api/reroute/openrouter'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
+import { Route as ApiWhitelistActivateRouteImport } from './routes/api/whitelist/activate'
 import { Route as ApiWhitelistRequestRouteImport } from './routes/api/whitelist/request'
 import { Route as ApiWhitelistVerifyRouteImport } from './routes/api/whitelist/verify'
 import { Route as ApiAdminRerouteLogsRouteImport } from './routes/api/admin/reroute/logs'
@@ -182,6 +183,11 @@ const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   path: '/api/stripe/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWhitelistActivateRoute = ApiWhitelistActivateRouteImport.update({
+  id: '/api/whitelist/activate',
+  path: '/api/whitelist/activate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiWhitelistRequestRoute = ApiWhitelistRequestRouteImport.update({
   id: '/api/whitelist/request',
   path: '/api/whitelist/request',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/api/progress/$token': typeof ApiProgressTokenRoute
   '/api/reroute/openrouter': typeof ApiRerouteOpenrouterRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/whitelist/activate': typeof ApiWhitelistActivateRoute
   '/api/whitelist/request': typeof ApiWhitelistRequestRoute
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth/': typeof ApiAuthIndexRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/api/progress/$token': typeof ApiProgressTokenRoute
   '/api/reroute/openrouter': typeof ApiRerouteOpenrouterRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/whitelist/activate': typeof ApiWhitelistActivateRoute
   '/api/whitelist/request': typeof ApiWhitelistRequestRoute
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth': typeof ApiAuthIndexRoute
@@ -342,6 +350,7 @@ export interface FileRoutesById {
   '/api/progress/$token': typeof ApiProgressTokenRoute
   '/api/reroute/openrouter': typeof ApiRerouteOpenrouterRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/whitelist/activate': typeof ApiWhitelistActivateRoute
   '/api/whitelist/request': typeof ApiWhitelistRequestRoute
   '/api/whitelist/verify': typeof ApiWhitelistVerifyRoute
   '/api/auth/': typeof ApiAuthIndexRoute
@@ -383,6 +392,7 @@ export interface FileRouteTypes {
     | '/api/progress/$token'
     | '/api/reroute/openrouter'
     | '/api/stripe/webhook'
+    | '/api/whitelist/activate'
     | '/api/whitelist/request'
     | '/api/whitelist/verify'
     | '/api/auth/'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/api/progress/$token'
     | '/api/reroute/openrouter'
     | '/api/stripe/webhook'
+    | '/api/whitelist/activate'
     | '/api/whitelist/request'
     | '/api/whitelist/verify'
     | '/api/auth'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/api/progress/$token'
     | '/api/reroute/openrouter'
     | '/api/stripe/webhook'
+    | '/api/whitelist/activate'
     | '/api/whitelist/request'
     | '/api/whitelist/verify'
     | '/api/auth/'
@@ -501,6 +513,7 @@ export interface RootRouteChildren {
   ApiProgressTokenRoute: typeof ApiProgressTokenRoute
   ApiRerouteOpenrouterRoute: typeof ApiRerouteOpenrouterRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  ApiWhitelistActivateRoute: typeof ApiWhitelistActivateRoute
   ApiWhitelistRequestRoute: typeof ApiWhitelistRequestRoute
   ApiWhitelistVerifyRoute: typeof ApiWhitelistVerifyRoute
   ApiAuthIndexRoute: typeof ApiAuthIndexRoute
@@ -703,6 +716,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/whitelist/activate': {
+      id: '/api/whitelist/activate'
+      path: '/api/whitelist/activate'
+      fullPath: '/api/whitelist/activate'
+      preLoaderRoute: typeof ApiWhitelistActivateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/whitelist/request': {
       id: '/api/whitelist/request'
       path: '/api/whitelist/request'
@@ -833,6 +853,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiProgressTokenRoute: ApiProgressTokenRoute,
   ApiRerouteOpenrouterRoute: ApiRerouteOpenrouterRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  ApiWhitelistActivateRoute: ApiWhitelistActivateRoute,
   ApiWhitelistRequestRoute: ApiWhitelistRequestRoute,
   ApiWhitelistVerifyRoute: ApiWhitelistVerifyRoute,
   ApiAuthIndexRoute: ApiAuthIndexRoute,
@@ -846,12 +867,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

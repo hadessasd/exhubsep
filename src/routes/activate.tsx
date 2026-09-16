@@ -46,6 +46,13 @@ type DeliveryItem = {
   instructions?: string | null;
   fileName?: string | null;
   hasUpload?: boolean;
+  scopeKey?: string | null;
+  os?: string | null;
+};
+
+type DeliveryByOs = {
+  macos: DeliveryItem[];
+  windows: DeliveryItem[];
 };
 
 type SessionPayload = {
@@ -81,54 +88,113 @@ type SessionPayload = {
     authCode?: string | null;
   }>;
   delivery?: DeliveryItem[];
+  deliveryByOs?: DeliveryByOs;
 };
 
-function DeliveryBlock({ items }: { items: DeliveryItem[] }) {
-  if (!items.length) {
+function DeliveryBlock({
+  items,
+  byOs,
+  preferredOs,
+}: {
+  items: DeliveryItem[];
+  byOs?: DeliveryByOs | null;
+  preferredOs?: "macos" | "windows" | null;
+}) {
+  const macos = byOs?.macos?.length ? byOs.macos : items.filter((i) => (i.os || "").includes("mac") || (i.scopeKey || "").includes("macos"));
+  const windows = byOs?.windows?.length
+    ? byOs.windows
+    : items.filter((i) => (i.os || "").includes("win") || (i.scopeKey || "").includes("windows"));
+  const hasSplit = macos.length > 0 || windows.length > 0;
+  const primary = preferredOs === "windows" ? windows : preferredOs === "macos" ? macos : [];
+  const secondary = preferredOs === "windows" ? macos : preferredOs === "macos" ? windows : [];
+  const fallback = items.length ? items : [...macos, ...windows];
+
+  function renderList(list: DeliveryItem[], title: string) {
+    if (!list.length) {
+      return (
+        <p className="text-xs text-fg-muted">
+          {title}: no build uploaded yet — admin can assign macOS / Windows files
+          in Delivery.
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">
+          {title}
+        </p>
+        {list.map((d, i) => (
+          <div key={`${title}-${i}`} className="space-y-2 rounded-xl border border-border/80 bg-white/70 p-3 dark:bg-surface">
+            <p className="font-semibold text-fg">{d.label}</p>
+            {d.message ? (
+              <p className="text-xs text-fg-muted">{d.message}</p>
+            ) : null}
+            {d.instructions ? (
+              <p className="whitespace-pre-wrap text-xs text-fg">{d.instructions}</p>
+            ) : null}
+            {d.steps ? (
+              <pre className="whitespace-pre-wrap rounded-lg bg-bg-soft p-2 text-[11px] text-fg">
+                {d.steps}
+              </pre>
+            ) : null}
+            {d.fileUrl ? (
+              <a
+                href={d.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-fg hover:opacity-90"
+              >
+                {d.fileName ? `Download ${d.fileName}` : "Download app"}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <p className="text-xs text-muted">
+                Download link pending for this OS.
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!fallback.length && !hasSplit) {
     return (
       <p className="text-xs text-fg-muted">
         App download / steps appear here when admin sets delivery for your OS and
-        tier (or a universal proctor pack).
+        tier (or the universal proctor pack).
       </p>
     );
   }
+
   return (
-    <div className="space-y-3 rounded-xl border border-green-200 bg-white/80 p-3 dark:bg-surface">
+    <div className="space-y-4 rounded-xl border border-green-200 bg-white/80 p-3 dark:bg-surface">
       <p className="text-xs font-bold uppercase tracking-wide text-muted">
         App download
       </p>
-      {items.map((d, i) => (
-        <div key={i} className="space-y-2">
-          <p className="font-semibold text-fg">{d.label}</p>
-          {d.message ? (
-            <p className="text-xs text-fg-muted">{d.message}</p>
-          ) : null}
-          {d.instructions ? (
-            <p className="whitespace-pre-wrap text-xs text-fg">{d.instructions}</p>
-          ) : null}
-          {d.steps ? (
-            <pre className="whitespace-pre-wrap rounded-lg bg-bg-soft p-2 text-[11px] text-fg">
-              {d.steps}
-            </pre>
-          ) : null}
-          {d.fileUrl ? (
-            <a
-              href={d.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-fg hover:opacity-90"
-            >
-              {d.fileName ? `Download ${d.fileName}` : "Download app"}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          ) : (
-            <p className="text-xs text-muted">
-              Download link pending — admin will attach the app file for your
-              product/tier.
-            </p>
+      {preferredOs && (primary.length || secondary.length) ? (
+        <>
+          {renderList(
+            primary.length ? primary : fallback,
+            preferredOs === "macos" ? "Your platform · macOS" : "Your platform · Windows",
           )}
+          {secondary.length ? (
+            <details className="rounded-lg border border-border/70 p-2">
+              <summary className="cursor-pointer text-xs font-semibold text-primary">
+                Also available · {preferredOs === "macos" ? "Windows" : "macOS"}
+              </summary>
+              <div className="mt-2">{renderList(secondary, preferredOs === "macos" ? "Windows" : "macOS")}</div>
+            </details>
+          ) : null}
+        </>
+      ) : hasSplit ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {renderList(macos, "macOS")}
+          {renderList(windows, "Windows")}
         </div>
-      ))}
+      ) : (
+        renderList(fallback, "Download")
+      )}
     </div>
   );
 }
@@ -153,6 +219,7 @@ function ActivatePage() {
     };
     authCode?: string | null;
     delivery?: DeliveryItem[];
+    deliveryByOs?: DeliveryByOs;
     remainingSerials?: number;
     progressUrl?: string;
   } | null>(null);
@@ -189,6 +256,7 @@ function ActivatePage() {
           },
           authCode: m.authCode || null,
           delivery: payload.delivery || [],
+          deliveryByOs: payload.deliveryByOs,
           remainingSerials: payload.payment.remainingSerials,
         });
       } else {
@@ -251,6 +319,7 @@ function ActivatePage() {
         machine: json.machine,
         authCode: json.authCode || null,
         delivery: json.delivery,
+        deliveryByOs: json.deliveryByOs,
         remainingSerials: json.remainingSerials,
       });
       setSerial("");
@@ -456,8 +525,12 @@ function ActivatePage() {
                           Copy auth code
                         </Button>
                         <p className="text-[11px] text-fg-muted">
-                          Use this auth code with the ExamHub app / daemon for
-                          this machine. Your serial was hashed and whitelisted.
+                          Paste this one-time auth code into the ExamHub macOS
+                          app (with serial, hostname, IP, and approximate
+                          location). The app calls{" "}
+                          <code className="font-mono">POST /api/whitelist/activate</code>
+                          ; the key is burned after first use. Later checks use
+                          serial whitelist verify only.
                         </p>
                       </>
                     ) : (
@@ -484,7 +557,17 @@ function ActivatePage() {
                       on this payment below.
                     </p>
                   ) : null}
-                  <DeliveryBlock items={done.delivery || data.delivery || []} />
+                  <DeliveryBlock
+                    items={done.delivery || data.delivery || []}
+                    byOs={done.deliveryByOs || data.deliveryByOs}
+                    preferredOs={
+                      done.machine?.os === "windows"
+                        ? "windows"
+                        : done.machine?.os === "macos"
+                          ? "macos"
+                          : os
+                    }
+                  />
                 </CardContent>
               </Card>
             ) : null}

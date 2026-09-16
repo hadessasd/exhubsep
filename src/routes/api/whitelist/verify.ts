@@ -9,10 +9,12 @@ import {
 
 /**
  * Public verify:
- * - POST JSON { machineId }  (web /activate tooling)
- * - GET  ?machineId=…        (same as Daemon, alternate path)
+ * - POST JSON { machineId, productKey? }  (app /activate tooling)
+ * - GET  ?machineId=…&productKey=…        (Daemon alternate path)
  *
- * Accepts the raw device serial; ExamHub SHA-256 hashes it server-side before lookup.
+ * Product scope: when productKey (or exam+tier) is sent, the serial must be
+ * whitelisted for that package (e.g. sat-pro). A serial on sat-pro does NOT
+ * authorize gre-pro. product_key=general still authorizes any package.
  */
 export const Route = createFileRoute("/api/whitelist/verify")({
   server: {
@@ -25,6 +27,25 @@ export const Route = createFileRoute("/api/whitelist/verify")({
             url.searchParams.get("machineId")?.trim() ||
             url.searchParams.get("machine_id")?.trim();
           if (!machineId) return jsonError("machineId required", 400);
+          const productKey =
+            url.searchParams.get("productKey")?.trim() ||
+            url.searchParams.get("product_key")?.trim() ||
+            undefined;
+          const exam = url.searchParams.get("exam")?.trim() || undefined;
+          const tier = url.searchParams.get("tier")?.trim() || undefined;
+          if (productKey || exam) {
+            const result = await verifyMachine({
+              machineId,
+              productKey,
+              exam,
+              tier,
+              hostname: url.searchParams.get("hostname") || undefined,
+              os: url.searchParams.get("os") || undefined,
+              isAdmin: url.searchParams.get("isAdmin") || undefined,
+              lastIp: await clientIp(request),
+            });
+            return json(result, result.authorized ? 200 : 403);
+          }
           const result = await daemonAuthCheck({
             machineId,
             hostname: url.searchParams.get("hostname") || undefined,
@@ -46,13 +67,18 @@ export const Route = createFileRoute("/api/whitelist/verify")({
             hostname?: string;
             os?: string;
             isAdmin?: string;
-            /** if true, auto-create pending when unknown */
+            productKey?: string;
+            product_key?: string;
+            exam?: string;
+            tier?: string;
+            /** if true, auto-create pending when unknown (general scope) */
             autoPending?: boolean;
           };
           if (!body.machineId?.trim()) {
             return jsonError("machineId required", 400);
           }
-          if (body.autoPending) {
+          const productKey = body.productKey || body.product_key;
+          if (body.autoPending && !productKey && !body.exam) {
             const result = await daemonAuthCheck({
               machineId: body.machineId,
               hostname: body.hostname,
@@ -69,6 +95,9 @@ export const Route = createFileRoute("/api/whitelist/verify")({
             hostname: body.hostname,
             os: body.os,
             isAdmin: body.isAdmin,
+            productKey,
+            exam: body.exam,
+            tier: body.tier,
             lastIp: await clientIp(request),
           });
           return json(result, result.ok ? 200 : 403);

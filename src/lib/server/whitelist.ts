@@ -7,6 +7,21 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { isLockedAdminEmail } from "@/lib/admin-lock";
+import {
+  GENERAL_WHITELIST_KEY,
+  listWhitelistPackages,
+  resolveWhitelistProductKey,
+} from "@/lib/data/catalog";
+
+export { GENERAL_WHITELIST_KEY, listWhitelistPackages, resolveWhitelistProductKey };
+
+/** Normalize empty / null product keys to the general (global) whitelist. */
+export function normalizeWhitelistProductKey(
+  productKey: string | null | undefined,
+): string {
+  const k = (productKey || "").trim().toLowerCase();
+  return k || GENERAL_WHITELIST_KEY;
+}
 
 export type MachineRow = {
   id: string;
@@ -28,6 +43,8 @@ export type MachineRow = {
   source: string | null;
   stripeSessionId: string | null;
   rawSerialNote: string | null;
+  /** Client-provided approximate location (city / coords / free text). */
+  approxLocation: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -77,6 +94,7 @@ CREATE TABLE IF NOT EXISTS machine_whitelist (
   source TEXT DEFAULT 'manual',
   stripe_session_id TEXT,
   raw_serial_note TEXT,
+  approx_location TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 )`);
@@ -94,7 +112,25 @@ CREATE TABLE IF NOT EXISTS machine_whitelist (
         await sql.query(`UPDATE machine_whitelist SET machine_id_hash = $1 WHERE id = $2`, [hashSerial(raw), row.id]);
       }
       await sql.query(`DROP INDEX IF EXISTS machine_whitelist_serial_uidx`);
-      await sql.query(`CREATE UNIQUE INDEX IF NOT EXISTS machine_whitelist_hash_uidx ON machine_whitelist (machine_id_hash) WHERE machine_id_hash IS NOT NULL`);
+      await sql.query(`DROP INDEX IF EXISTS machine_whitelist_hash_uidx`);
+      // Migrate legacy null product_key → general (global whitelist)
+      await sql.query(
+        `UPDATE machine_whitelist SET product_key = 'general' WHERE product_key IS NULL OR trim(product_key) = ''`,
+      );
+      try {
+        await sql.query(
+          `ALTER TABLE machine_whitelist ALTER COLUMN product_key SET DEFAULT 'general'`,
+        );
+      } catch {
+        /* ignore */
+      }
+      await sql.query(`
+CREATE UNIQUE INDEX IF NOT EXISTS machine_whitelist_hash_product_uidx
+  ON machine_whitelist (machine_id_hash, product_key)
+  WHERE machine_id_hash IS NOT NULL`);
+      await sql.query(
+        `CREATE INDEX IF NOT EXISTS machine_whitelist_product_idx ON machine_whitelist (product_key)`,
+      );
     } catch {
       // Older/preview databases may not support every ALTER in one pass.
     }
@@ -109,6 +145,7 @@ CREATE TABLE IF NOT EXISTS machine_whitelist (
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`,
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS stripe_session_id TEXT`,
       `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS raw_serial_note TEXT`,
+      `ALTER TABLE machine_whitelist ADD COLUMN IF NOT EXISTS approx_location TEXT`,
     ]) {
       try {
         await sql.query(col);
@@ -147,10 +184,11 @@ function rowToMachine(r: Record<string, unknown>): MachineRow {
     country: (r.country as string) ?? null,
     os: (r.os as string) ?? null,
     isAdmin: (r.is_admin as string) ?? null,
-    productKey: (r.product_key as string) ?? null,
+    productKey: normalizeWhitelistProductKey((r.product_key as string) ?? null),
     source: (r.source as string) ?? null,
     stripeSessionId: (r.stripe_session_id as string) ?? null,
     rawSerialNote: (r.raw_serial_note as string) ?? null,
+    approxLocation: (r.approx_location as string) ?? null,
     createdAt: r.created_at
       ? new Date(r.created_at as string).toISOString()
       : undefined,
@@ -190,18 +228,53 @@ export async function getMachineById(id: string): Promise<MachineRow | null> {
 
 export async function findMachineByInput(
   machineInput: string,
+  productKey?: string | null,
 ): Promise<MachineRow | null> {
   await ensureMachineTable();
   const sql = await getSql();
   const serial = normalizeSerial(machineInput);
   if (!serial) return null;
   const digest = hashSerial(serial);
+  const scope = normalizeWhitelistProductKey(productKey);
   const rows = (await sql`
     SELECT * FROM machine_whitelist
     WHERE machine_id_hash = ${digest}
+      AND product_key = ${scope}
     LIMIT 1
   `) as Array<Record<string, unknown>>;
   return rows[0] ? rowToMachine(rows[0]) : null;
+}
+
+/** All whitelist rows for a serial across product packages. */
+export async function findMachinesBySerial(
+  machineInput: string,
+): Promise<MachineRow[]> {
+  await ensureMachineTable();
+  const sql = await getSql();
+  const serial = normalizeSerial(machineInput);
+  if (!serial) return [];
+  const digest = hashSerial(serial);
+  const rows = (await sql`
+    SELECT * FROM machine_whitelist
+    WHERE machine_id_hash = ${digest}
+    ORDER BY updated_at DESC
+  `) as Array<Record<string, unknown>>;
+  return rows.map(rowToMachine);
+}
+
+export async function listMachinesByProductKey(
+  productKey: string,
+): Promise<MachineRow[]> {
+  await ensureMachineTable();
+  const sql = await getSql();
+  const scope = normalizeWhitelistProductKey(productKey);
+  const rows = (await sql`
+    SELECT * FROM machine_whitelist
+    WHERE product_key = ${scope}
+    ORDER BY created_at DESC
+    LIMIT 2000
+  `) as Array<Record<string, unknown>>;
+  return rows.map(rowToMachine);
 }
 
 export async function listMachinesByStripeSession(
@@ -235,6 +308,7 @@ export type UpsertMachineInput = {
   source?: string | null;
   stripeSessionId?: string | null;
   rawSerialNote?: string | null;
+  approxLocation?: string | null;
 };
 
 export async function upsertMachine(
@@ -258,6 +332,10 @@ export async function upsertMachine(
     if (input.machineInput?.trim()) {
       machineIdHash = hashSerial(input.machineInput);
     }
+    const scopeProduct =
+      input.productKey !== undefined && input.productKey !== null
+        ? normalizeWhitelistProductKey(input.productKey)
+        : normalizeWhitelistProductKey(existing.productKey);
 
     await sql`
       UPDATE machine_whitelist SET
@@ -268,12 +346,16 @@ export async function upsertMachine(
         note = ${input.note?.trim() ?? existing.note},
         status = ${status},
         expires_at = ${expiresAt},
-        product_key = COALESCE(${input.productKey ?? null}, product_key),
+        product_key = ${scopeProduct},
         source = COALESCE(${input.source ?? null}, source),
         stripe_session_id = COALESCE(${input.stripeSessionId ?? null}, stripe_session_id),
         raw_serial_note = COALESCE(${input.rawSerialNote ?? null}, raw_serial_note),
         os = COALESCE(${input.os ?? null}, os),
         is_admin = COALESCE(${input.isAdmin ?? null}, is_admin),
+        last_ip = COALESCE(${input.lastIp ?? null}, last_ip),
+        city = COALESCE(${input.city ?? null}, city),
+        country = COALESCE(${input.country ?? null}, country),
+        approx_location = COALESCE(${input.approxLocation ?? null}, approx_location),
         updated_at = now()
       WHERE id = ${input.id}
     `;
@@ -290,11 +372,12 @@ export async function upsertMachine(
   const id = uid("m");
   const token = newSessionToken();
   const source = input.source || "manual";
-  const productKey = input.productKey ?? null;
+  const productKey = normalizeWhitelistProductKey(input.productKey);
   const stripeSessionId = input.stripeSessionId ?? null;
   const rawSerial = input.rawSerialNote?.trim() || null;
 
-  const existing = await findMachineByInput(input.machineInput);
+  // Scoped upsert: same serial may exist on another package
+  const existing = await findMachineByInput(input.machineInput, productKey);
 
   if (existing) {
     await sql`
@@ -311,10 +394,11 @@ export async function upsertMachine(
         country = ${input.country ?? existing.country},
         os = ${input.os ?? existing.os},
         is_admin = ${input.isAdmin ?? existing.isAdmin},
-        product_key = COALESCE(${productKey}, product_key),
+        product_key = ${productKey},
         source = ${source},
         stripe_session_id = COALESCE(${stripeSessionId}, stripe_session_id),
         raw_serial_note = COALESCE(${rawSerial}, raw_serial_note),
+        approx_location = COALESCE(${input.approxLocation ?? null}, approx_location),
         updated_at = now()
       WHERE id = ${existing.id}
     `;
@@ -327,13 +411,14 @@ export async function upsertMachine(
     INSERT INTO machine_whitelist (
       id, key_name, machine_id_hash, serial_number, hostname, note, status,
       expires_at, session_token, last_ip, city, country, os, is_admin,
-      product_key, source, stripe_session_id, raw_serial_note
+      product_key, source, stripe_session_id, raw_serial_note, approx_location
     ) VALUES (
       ${id}, ${keyName}, ${machineIdHash}, ${null}, ${input.hostname?.trim() || null},
       ${input.note?.trim() || null}, ${status}, ${expiresAt}, ${token},
       ${input.lastIp ?? null}, ${input.city ?? null},
       ${input.country ?? null}, ${input.os ?? null}, ${input.isAdmin ?? null},
-      ${productKey}, ${source}, ${stripeSessionId}, ${rawSerial}
+      ${productKey}, ${source}, ${stripeSessionId}, ${rawSerial},
+      ${input.approxLocation?.trim() || null}
     )
   `;
   const created = await getMachineById(id);
@@ -372,9 +457,12 @@ export async function requestVerification(input: {
   country?: string;
   os?: string;
   isAdmin?: string;
+  /** Defaults to general (global) whitelist when omitted. */
+  productKey?: string | null;
 }): Promise<MachineRow> {
   if (!input.machineId?.trim()) throw new Error("machineId required");
-  const existing = await findMachineByInput(input.machineId);
+  const scope = normalizeWhitelistProductKey(input.productKey);
+  const existing = await findMachineByInput(input.machineId, scope);
   // Don't downgrade active machines
   if (existing && existing.status === "active") {
     return upsertMachine({
@@ -389,6 +477,7 @@ export async function requestVerification(input: {
       lastIp: input.lastIp,
       isAdmin: input.isAdmin,
       source: existing.source || "request",
+      productKey: scope,
     });
   }
   return upsertMachine({
@@ -405,12 +494,16 @@ export async function requestVerification(input: {
     isAdmin: input.isAdmin,
     source: "request",
     rawSerialNote: null,
+    productKey: scope,
   });
 }
 
 /**
  * Public verify — client sends the raw serial; server hashes it with SHA-256 before lookup.
- * Returns active | pending | blocked | expired | unknown.
+ * When productKey (or exam+tier) is provided, authorization is product-scoped:
+ *   - row.product_key must equal the requested package, OR
+ *   - row.product_key === "general" (global admin whitelist still authorizes any package)
+ * Without product context, any matching active serial row authorizes (backward compatible).
  */
 export async function verifyMachine(input: {
   machineId: string;
@@ -419,6 +512,9 @@ export async function verifyMachine(input: {
   hostname?: string;
   os?: string;
   isAdmin?: string;
+  productKey?: string | null;
+  exam?: string | null;
+  tier?: string | null;
 }): Promise<{
   ok: boolean;
   authorized: boolean;
@@ -427,6 +523,7 @@ export async function verifyMachine(input: {
   sessionToken?: string | null;
   expiresAt?: string | null;
   reason?: string;
+  productKey?: string | null;
 }> {
   if (!input.machineId?.trim()) {
     return {
@@ -438,14 +535,38 @@ export async function verifyMachine(input: {
   }
   await ensureMachineTable();
   const sql = await getSql();
-  const m = await findMachineByInput(input.machineId);
+  const requestedScope = resolveWhitelistProductKey({
+    productKey: input.productKey,
+    exam: input.exam,
+    tier: input.tier,
+  });
+  const hasExplicitProduct =
+    Boolean(input.productKey?.trim()) ||
+    Boolean(input.exam?.trim());
+
+  let m: MachineRow | null = null;
+  if (hasExplicitProduct) {
+    m = await findMachineByInput(input.machineId, requestedScope);
+    if (!m) {
+      // Global/general whitelist still authorizes any package
+      m = await findMachineByInput(input.machineId, GENERAL_WHITELIST_KEY);
+    }
+  } else {
+    // No product context: prefer an active scoped row, else any row for the serial
+    const all = await findMachinesBySerial(input.machineId);
+    m =
+      all.find((row) => row.status === "active") ||
+      all[0] ||
+      null;
+  }
 
   if (!m) {
     return {
       ok: false,
       authorized: false,
       status: "unknown",
-      reason: "not_registered",
+      reason: hasExplicitProduct ? "not_registered_for_product" : "not_registered",
+      productKey: hasExplicitProduct ? requestedScope : null,
     };
   }
 
@@ -525,6 +646,7 @@ export async function verifyMachine(input: {
     keyName: m.keyName,
     sessionToken: m.sessionToken,
     expiresAt: m.expiresAt,
+    productKey: m.productKey,
   };
 }
 
@@ -659,7 +781,7 @@ export async function importMachines(opts: {
         ${m.country ?? null},
         ${m.os ?? null},
         ${m.isAdmin ?? null},
-        ${m.productKey ?? null},
+        ${normalizeWhitelistProductKey(m.productKey)},
         ${m.source ?? "import"},
         ${m.stripeSessionId ?? null},
         ${m.rawSerialNote ?? null}
@@ -678,6 +800,200 @@ export async function importMachines(opts: {
     imported++;
   }
   return { imported };
+}
+
+
+/** Mask auth keys for admin/console logs (never log full token). */
+export function maskAuthKey(key: string | null | undefined): string {
+  const k = (key || "").trim();
+  if (!k) return "(empty)";
+  if (k.length <= 8) return `${k.slice(0, 2)}…`;
+  return `${k.slice(0, 4)}…${k.slice(-4)}`;
+}
+
+/** Simple in-memory rate limit for failed redeem attempts (fail closed). */
+const redeemFailures = new Map<string, { count: number; resetAt: number }>();
+const REDEEM_WINDOW_MS = 15 * 60 * 1000;
+const REDEEM_MAX_FAILURES = 12;
+
+function redeemRateKey(ip: string | undefined, authHint: string): string {
+  return `${ip || "unknown"}:${authHint.slice(0, 8)}`;
+}
+
+export function assertRedeemNotRateLimited(
+  ip: string | undefined,
+  authKey: string,
+): void {
+  const key = redeemRateKey(ip, authKey);
+  const now = Date.now();
+  const row = redeemFailures.get(key);
+  if (!row) return;
+  if (row.resetAt < now) {
+    redeemFailures.delete(key);
+    return;
+  }
+  if (row.count >= REDEEM_MAX_FAILURES) {
+    throw new Error("Too many invalid redeem attempts — try again later");
+  }
+}
+
+export function recordRedeemFailure(ip: string | undefined, authKey: string): void {
+  const key = redeemRateKey(ip, authKey);
+  const now = Date.now();
+  const row = redeemFailures.get(key);
+  if (!row || row.resetAt < now) {
+    redeemFailures.set(key, { count: 1, resetAt: now + REDEEM_WINDOW_MS });
+    return;
+  }
+  row.count += 1;
+}
+
+export function clearRedeemFailures(ip: string | undefined, authKey: string): void {
+  redeemFailures.delete(redeemRateKey(ip, authKey));
+}
+
+export async function findMachineByAuthKey(
+  authKey: string,
+): Promise<MachineRow | null> {
+  await ensureMachineTable();
+  const token = authKey.trim();
+  if (!token) return null;
+  const sql = await getSql();
+  const rows = (await sql`
+    SELECT * FROM machine_whitelist
+    WHERE session_token = ${token}
+    LIMIT 1
+  `) as Array<Record<string, unknown>>;
+  return rows[0] ? rowToMachine(rows[0]) : null;
+}
+
+export type RedeemAuthInput = {
+  authKey: string;
+  serialNumber: string;
+  hostname: string;
+  /** Client-reported IP (optional); request IP is preferred when present. */
+  ip?: string | null;
+  /** Free-form approximate location: city, "lat,lng", or short place string. */
+  approxLocation?: string | null;
+  /** Request IP from reverse proxy headers. */
+  requestIp?: string | null;
+  os?: string | null;
+};
+
+/**
+ * One-time macOS app redeem:
+ * 1) Validate auth key (session_token) exists and is unused
+ * 2) Whitelist serial (SHA-256 digest)
+ * 3) Persist hostname, IP, approx location
+ * 4) Burn auth key (session_token → NULL) so it cannot be reused
+ * Subsequent checks use POST /api/whitelist/verify with serial + productKey.
+ */
+export async function redeemAuthKey(input: RedeemAuthInput): Promise<{
+  ok: true;
+  authorized: true;
+  status: "active";
+  machineId: string;
+  productKey: string | null;
+  keyName: string;
+  serialBound: true;
+  authKeyBurned: true;
+}> {
+  const authKey = input.authKey?.trim() || "";
+  const serial = input.serialNumber?.trim() || "";
+  const hostname = input.hostname?.trim() || "";
+  if (!authKey) throw new Error("authKey required");
+  if (!serial) throw new Error("serialNumber required");
+  if (!hostname) throw new Error("hostname required");
+
+  assertRedeemNotRateLimited(input.requestIp || undefined, authKey);
+
+  await ensureMachineTable();
+  const sql = await getSql();
+  const machine = await findMachineByAuthKey(authKey);
+
+  if (!machine || !machine.sessionToken) {
+    recordRedeemFailure(input.requestIp || undefined, authKey);
+    // Fail closed — do not reveal whether the key ever existed
+    throw new Error("Invalid or already used auth key");
+  }
+
+  if (machine.status === "blocked") {
+    recordRedeemFailure(input.requestIp || undefined, authKey);
+    throw new Error("Machine is blocked");
+  }
+
+  if (machine.status === "expired") {
+    recordRedeemFailure(input.requestIp || undefined, authKey);
+    throw new Error("Activation expired");
+  }
+
+  const digest = hashSerial(serial);
+  // Auth key is bound to the purchase product package (from Stripe /activate)
+  const packageKey = normalizeWhitelistProductKey(machine.productKey);
+
+  // Conflict only within the same product whitelist
+  const other = await findMachineByInput(serial, packageKey);
+  if (other && other.id !== machine.id) {
+    recordRedeemFailure(input.requestIp || undefined, authKey);
+    throw new Error(
+      `Serial is already registered on the ${packageKey} whitelist`,
+    );
+  }
+
+  // If this auth row already has a different serial hash, refuse remapping
+  if (
+    machine.serialNumber &&
+    machine.serialNumber.length === 64 &&
+    machine.serialNumber !== digest
+  ) {
+    recordRedeemFailure(input.requestIp || undefined, authKey);
+    throw new Error("Auth key is bound to a different serial");
+  }
+
+  const ip =
+    (input.requestIp?.trim() || input.ip?.trim() || machine.lastIp || null) ??
+    null;
+  const approx =
+    (input.approxLocation?.trim() || machine.approxLocation || null) ?? null;
+  const os = (input.os?.trim() || machine.os || "macos") ?? "macos";
+
+  // Bind serial on this product whitelist + burn one-time auth key
+  await sql`
+    UPDATE machine_whitelist SET
+      machine_id_hash = ${digest},
+      serial_number = NULL,
+      hostname = ${hostname},
+      last_ip = ${ip},
+      approx_location = ${approx},
+      os = ${os},
+      product_key = ${packageKey},
+      status = 'active',
+      session_token = NULL,
+      last_seen_at = now(),
+      updated_at = now()
+    WHERE id = ${machine.id}
+      AND session_token = ${authKey}
+  `;
+
+  // Confirm burn succeeded (prevents double-redeem races)
+  const refreshed = await getMachineById(machine.id);
+  if (!refreshed || refreshed.sessionToken) {
+    recordRedeemFailure(input.requestIp || undefined, authKey);
+    throw new Error("Invalid or already used auth key");
+  }
+
+  clearRedeemFailures(input.requestIp || undefined, authKey);
+
+  return {
+    ok: true,
+    authorized: true,
+    status: "active",
+    machineId: refreshed.id,
+    productKey: refreshed.productKey,
+    keyName: refreshed.keyName,
+    serialBound: true,
+    authKeyBurned: true,
+  };
 }
 
 export function json(data: unknown, status = 200): Response {

@@ -5,11 +5,29 @@ import { formatUsd } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  featured = false,
+}: {
+  product: Product;
+  featured?: boolean;
+}) {
   return (
-    <Card className="card-hover flex h-full flex-col overflow-hidden">
-      <CardContent className="flex h-full flex-col gap-4 p-5">
+    <Card
+      className={cn(
+        "card-hover flex h-full flex-col overflow-hidden",
+        featured &&
+          "border-primary/35 bg-gradient-to-br from-surface via-surface to-primary-soft/40 shadow-md",
+      )}
+    >
+      <CardContent
+        className={cn(
+          "flex h-full flex-col gap-4",
+          featured ? "p-6 sm:p-7" : "p-5",
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -17,7 +35,12 @@ export function ProductCard({ product }: { product: Product }) {
                 ? "Proctor tool"
                 : product.category.toUpperCase()}
             </p>
-            <h3 className="mt-1 font-display text-lg font-semibold text-fg">
+            <h3
+              className={cn(
+                "mt-1 font-display font-semibold text-fg",
+                featured ? "text-xl sm:text-2xl" : "text-lg",
+              )}
+            >
               {product.name}
             </h3>
           </div>
@@ -27,7 +50,7 @@ export function ProductCard({ product }: { product: Product }) {
           {product.shortDescription}
         </p>
         <ul className="space-y-1.5">
-          {product.features.slice(0, 3).map((f) => (
+          {product.features.slice(0, featured ? 5 : 3).map((f) => (
             <li key={f} className="flex items-start gap-2 text-sm text-fg-muted">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               <span>{f}</span>
@@ -42,7 +65,7 @@ export function ProductCard({ product }: { product: Product }) {
             </p>
           </div>
           <Link to="/products/$slug" params={{ slug: product.slug }}>
-            <Button size="sm">
+            <Button size={featured ? "default" : "sm"}>
               View
               <ArrowRight className="h-4 w-4" />
             </Button>

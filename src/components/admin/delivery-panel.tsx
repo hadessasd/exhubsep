@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Link2, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Apple, Link2, Monitor, RefreshCw, Shield, Trash2, Upload } from "lucide-react";
 
 type Asset = {
   id: string;
@@ -246,9 +246,10 @@ export function DeliveryPanel() {
             Delivery & Payment Links
           </h2>
           <p className="text-sm text-fg-muted">
-            Per product/tier: upload an app file and/or set an external download
-            link, plus buyer instructions. Configure GMAT/GRE Stripe Payment
-            Links below (leave empty until you have live buy.stripe.com URLs).
+            Assign a distinct <strong>macOS</strong> and <strong>Windows</strong>{" "}
+            build per exam/tier (SAT → SAT software, GRE → GRE, …). Proctor /
+            lockdown tools share one <strong>universal</strong> delivery pack.
+            Configure GMAT/GRE Stripe Payment Links below when ready.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()}>
@@ -358,6 +359,143 @@ export function DeliveryPanel() {
         </CardContent>
       </Card>
 
+      <Card className="border-primary/20 bg-primary-soft/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shield className="h-4 w-4 text-primary" />
+            Proctor · universal delivery
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-fg-muted">
+          <p>
+            All LockDown / Honorlock / Proctorio (and other proctor) purchases
+            resolve to the shared <code className="font-mono text-xs">proctor-universal</code>{" "}
+            pack — not per-exam silos. Optionally add OS-specific builds with{" "}
+            <code className="font-mono text-xs">proctor-universal-macos</code> /{" "}
+            <code className="font-mono text-xs">proctor-universal-windows</code>.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {presets
+              .filter((p) => p.scopeKey.startsWith("proctor-universal"))
+              .map((p) => (
+                <Button
+                  key={p.scopeKey}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyPreset(p)}
+                >
+                  {p.label}
+                </Button>
+              ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">macOS / Windows coverage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-3 text-xs text-fg-muted">
+            Green = asset saved for that OS. Click a cell to load the preset and
+            upload/link the build.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted">
+                  <th className="py-2 pr-3 font-semibold">Product</th>
+                  <th className="py-2 pr-3 font-semibold">
+                    <span className="inline-flex items-center gap-1">
+                      <Apple className="h-3.5 w-3.5" /> macOS
+                    </span>
+                  </th>
+                  <th className="py-2 font-semibold">
+                    <span className="inline-flex items-center gap-1">
+                      <Monitor className="h-3.5 w-3.5" /> Windows
+                    </span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ["sat", "all"],
+                    ["act", "all"],
+                    ["gmat", "all"],
+                    ["gre", "all"],
+                    ["proctor", "universal"],
+                  ] as const
+                ).map(([exam, tier]) => {
+                  const macKey =
+                    exam === "proctor"
+                      ? "proctor-universal-macos"
+                      : `${exam}-${tier}-macos`;
+                  const winKey =
+                    exam === "proctor"
+                      ? "proctor-universal-windows"
+                      : `${exam}-${tier}-windows`;
+                  const uniKey =
+                    exam === "proctor" ? "proctor-universal" : null;
+                  const hasMac = assets.some(
+                    (a) =>
+                      a.scopeKey === macKey ||
+                      (uniKey && a.scopeKey === uniKey),
+                  );
+                  const hasWin = assets.some(
+                    (a) =>
+                      a.scopeKey === winKey ||
+                      (uniKey && a.scopeKey === uniKey),
+                  );
+                  const macPreset = presets.find((p) => p.scopeKey === macKey) || {
+                    scopeKey: macKey,
+                    label: macKey,
+                  };
+                  const winPreset = presets.find((p) => p.scopeKey === winKey) || {
+                    scopeKey: winKey,
+                    label: winKey,
+                  };
+                  return (
+                    <tr key={exam} className="border-b border-border/70">
+                      <td className="py-2 pr-3 font-semibold uppercase text-fg">
+                        {exam === "proctor" ? "Proctor (universal)" : exam}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          type="button"
+                          onClick={() => applyPreset(macPreset)}
+                          className={`rounded-lg px-2 py-1 font-semibold ${
+                            hasMac
+                              ? "bg-green-100 text-green-800"
+                              : "bg-bg-soft text-muted hover:bg-primary-soft"
+                          }`}
+                        >
+                          {hasMac ? "Assigned" : "Assign macOS"}
+                        </button>
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => applyPreset(winPreset)}
+                          className={`rounded-lg px-2 py-1 font-semibold ${
+                            hasWin
+                              ? "bg-green-100 text-green-800"
+                              : "bg-bg-soft text-muted hover:bg-primary-soft"
+                          }`}
+                        >
+                          {hasWin ? "Assigned" : "Assign Windows"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Save delivery asset</CardTitle>
@@ -420,13 +558,50 @@ export function DeliveryPanel() {
                 placeholder="standard | pro | premium | all"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>OS</Label>
-              <Input
-                value={os}
-                onChange={(e) => setOs(e.target.value)}
-                placeholder="macos | windows | all"
-              />
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Target OS (required for exam apps)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["macos", "macOS", Apple],
+                    ["windows", "Windows", Monitor],
+                    ["all", "All / Universal", Shield],
+                  ] as const
+                ).map(([value, labelText, Icon]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setOs(value);
+                      // Keep scope key in sync when editing exam presets
+                      const parts = scopeKey.split("-");
+                      if (parts.length >= 3 && parts[0] !== "proctor") {
+                        const next = `${parts[0]}-${parts[1]}-${value === "all" ? "all" : value}`;
+                        setScopeKey(next);
+                      } else if (parts[0] === "proctor") {
+                        setScopeKey(
+                          value === "all"
+                            ? "proctor-universal"
+                            : `proctor-universal-${value}`,
+                        );
+                        setLabel(
+                          value === "all"
+                            ? "Proctor · Universal (all lockdown tools)"
+                            : `Proctor · Universal · ${labelText} build`,
+                        );
+                      }
+                    }}
+                    className={`flex items-center justify-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-bold transition ${
+                      os === value
+                        ? "border-primary bg-primary-soft text-primary"
+                        : "border-border bg-surface text-fg-muted hover:border-primary/40"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {labelText}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>External download link</Label>

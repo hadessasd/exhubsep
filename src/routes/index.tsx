@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   PRODUCTS,
+  SUPPORT_TELEGRAM,
+  SUPPORT_TELEGRAM_URL,
   getProductsByCategory,
 } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/products/product-card";
-import { formatUsd } from "@/lib/utils";
 import {
   ArrowRight,
   ShieldCheck,
@@ -22,6 +23,9 @@ import {
   FileText,
   Briefcase,
   Shield,
+  GraduationCap,
+  BookOpen,
+  Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -30,17 +34,26 @@ export const Route = createFileRoute("/")({
     meta: [
       {
         title:
-          "ExamHub | SAT ACT Prep, LockDown Browser, USACO, Honorlock, Proctorio",
+          "ExamHub | SAT ACT GRE GMAT Prep, LockDown Browser, Honorlock, Proctorio",
       },
       {
         name: "description",
         content:
-          "ExamHub: 4.4★ from 755 green vouch ratings. SAT/ACT pathways, Universal Proctor Bypass, full proctor stack, USACO, research papers, internships. Crypto + G2A voucher checkout.",
+          "ExamHub: SAT, ACT, GRE & GMAT pathways, Universal Proctor Bypass for LockDown Browser and 30+ tools. Crypto + G2A voucher checkout. Telegram @" +
+          SUPPORT_TELEGRAM +
+          ".",
       },
     ],
   }),
 });
 
+const SECTION_NAV = [
+  { id: "section-sat", label: "SAT" },
+  { id: "section-act", label: "ACT" },
+  { id: "section-gre", label: "GRE" },
+  { id: "section-gmat", label: "GMAT" },
+  { id: "section-proctoring", label: "Proctor" },
+] as const;
 
 function HomePage() {
   useEffect(() => {
@@ -64,33 +77,71 @@ function HomePage() {
   );
   const contests = getProductsByCategory("contests");
   const tools = getProductsByCategory("tools");
-  
+
   return (
     <Shell isAdmin={isAdmin}>
-      <div className="pb-8 pt-6 sm:pt-10">
-        {/* 1. Hero + categories */}
+      <div className="pb-12 pt-6 sm:pt-10">
         <HeroSearch />
 
-        <div className="mx-auto mt-6 max-w-6xl px-4 sm:px-6">
+        {/* Prominent Telegram */}
+        <div className="mx-auto mt-7 max-w-6xl px-4 sm:px-6">
           <a
-            href="https://t.me/SATBypass"
+            href={SUPPORT_TELEGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary-soft px-4 py-3 text-sm font-semibold text-fg shadow-sm transition hover:border-primary/50"
+            className="group relative flex flex-col overflow-hidden rounded-3xl border border-[#2AABEE]/40 bg-gradient-to-r from-[#1d9bd5] via-[#2AABEE] to-[#6ec8f5] p-[1px] shadow-lg transition hover:shadow-xl sm:flex-row"
           >
-            <span>Join our Telegram · t.me/SATBypass</span>
-            <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-fg">
-              Open
-            </span>
+            <div className="flex flex-1 flex-col gap-3 rounded-[1.4rem] bg-[#0e7fb8]/95 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-6">
+              <div className="flex items-start gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
+                  <Send className="h-6 w-6" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/80">
+                    Community · Support · Updates
+                  </p>
+                  <p className="mt-1 font-display text-xl font-bold sm:text-2xl">
+                    Telegram · @{SUPPORT_TELEGRAM}
+                  </p>
+                  <p className="mt-1 max-w-xl text-sm text-white/85">
+                    Join for delivery help, score pathways, and proctor tips —
+                    same handle linked in the header and footer.
+                  </p>
+                </div>
+              </div>
+              <span className="inline-flex items-center justify-center gap-2 self-start rounded-2xl bg-white px-5 py-3 text-sm font-bold text-[#0e7fb8] shadow-sm transition group-hover:scale-[1.02] sm:self-center">
+                Open Telegram
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            </div>
           </a>
         </div>
 
-        {/* 2. Vouches under categories, above products */}
+        {/* Jump nav for neat exam sections */}
+        <nav
+          aria-label="Exam sections"
+          className="mx-auto mt-6 max-w-6xl px-4 sm:px-6"
+        >
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/80 bg-surface/90 p-2 shadow-sm">
+            <span className="px-2 text-[11px] font-bold uppercase tracking-wider text-muted">
+              Jump to
+            </span>
+            {SECTION_NAV.map((s) => (
+              <a
+                key={s.id}
+                href={`#${s.id}`}
+                className="rounded-xl px-3 py-1.5 text-sm font-semibold text-fg transition hover:bg-primary-soft hover:text-primary"
+              >
+                {s.label}
+              </a>
+            ))}
+          </div>
+        </nav>
+
         <div className="mt-8 sm:mt-10">
           <ScoreVouches />
         </div>
 
-        {/* 3. Trust chips */}
         <section className="mx-auto mt-10 max-w-6xl px-4 sm:px-6">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
@@ -117,15 +168,15 @@ function HomePage() {
             ].map((item) => (
               <Card
                 key={item.title}
-                className="border-border/80 bg-surface/90 shadow-sm card-hover"
+                className="border-border/80 bg-surface/95 shadow-sm card-hover"
               >
-                <CardContent className="flex gap-3 p-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                <CardContent className="flex gap-3 p-5">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                     <item.icon className="h-5 w-5" />
                   </span>
                   <div>
                     <p className="text-sm font-semibold text-fg">{item.title}</p>
-                    <p className="text-xs leading-relaxed text-fg-muted">
+                    <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
                       {item.body}
                     </p>
                   </div>
@@ -137,7 +188,7 @@ function HomePage() {
 
         <section className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
           <div className="overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-[#3d2918] via-[#5c3d22] to-primary p-[1px] shadow-lg">
-            <div className="rounded-[1.4rem] bg-gradient-to-br from-[#2c1a0e] via-[#3d2918] to-[#4a3018] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-8">
+            <div className="rounded-[1.4rem] bg-gradient-to-br from-[#2c1a0e] via-[#3d2918] to-[#4a3018] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8 sm:p-9">
               <div className="max-w-xl">
                 <Badge className="mb-3 border-0 bg-accent/20 text-accent-soft">
                   <Play className="mr-1 h-3.5 w-3.5" />
@@ -146,7 +197,7 @@ function HomePage() {
                 <h2 className="font-display text-2xl font-bold text-[#fffbf5] sm:text-3xl">
                   SAT assist overlay + sandbox visual
                 </h2>
-                <p className="mt-2 text-sm text-[#e4d4bb]">
+                <p className="mt-2 text-sm leading-relaxed text-[#e4d4bb]">
                   Guided tutorial first, then a 5-question digital SAT frame with
                   discreet Assist control and sandbox isolation diagram.
                 </p>
@@ -164,74 +215,116 @@ function HomePage() {
           </div>
         </section>
 
-
-        {/* Products anchor — category chips scroll here */}
         <div id="section-products" className="scroll-mt-24" />
 
         <CatalogBlock
           id="section-sat"
-          title="SAT pathways"
-          subtitle="Standard · Pro · Premium"
+          eyebrow="Exam pathway"
+          title="SAT"
+          subtitle="Standard · Pro · Premium — macOS & Windows software delivery"
+          icon={GraduationCap}
           products={sat}
         />
 
         <CatalogBlock
           id="section-act"
-          title="ACT pathways"
-          subtitle="Standard · Pro · Premium"
+          eyebrow="Exam pathway"
+          title="ACT"
+          subtitle="Standard · Pro · Premium — distinct ACT builds per OS"
+          icon={BookOpen}
           products={act}
         />
 
         <CatalogBlock
-          id="section-gmat"
-          title="GMAT pathways"
-          subtitle="Standard · Pro · Premium · Payment Links in admin"
-          products={gmat}
-        />
-
-        <CatalogBlock
           id="section-gre"
-          title="GRE pathways"
-          subtitle="Standard · Pro · Premium · Payment Links in admin"
+          eyebrow="Exam pathway"
+          title="GRE"
+          subtitle="Standard · Pro · Premium — Payment Links via admin when ready"
+          icon={BookOpen}
           products={gre}
         />
 
-        {universal ? (
-          <section
-            id="section-universal"
-            className="mx-auto mt-14 scroll-mt-24 max-w-6xl rounded-2xl px-4 transition sm:px-6"
-          >
-            <div className="mb-5 flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              <h2 className="font-display text-2xl font-bold text-fg">
-                Universal Proctor Bypass
-              </h2>
+        <CatalogBlock
+          id="section-gmat"
+          eyebrow="Exam pathway"
+          title="GMAT"
+          subtitle="Standard · Pro · Premium — Payment Links via admin when ready"
+          icon={GraduationCap}
+          products={gmat}
+        />
+
+        {/* Proctor lockdown browsers — universal delivery */}
+        <section
+          id="section-proctoring"
+          className="mx-auto mt-16 scroll-mt-24 max-w-6xl px-4 sm:px-6"
+        >
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-border/80 pb-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+                <Shield className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+                  Lockdown browsers
+                </p>
+                <h2 className="font-display text-2xl font-bold text-fg sm:text-3xl">
+                  Proctor tools
+                </h2>
+                <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+                  LockDown Browser, Honorlock, Proctorio & 30+ platforms — one
+                  shared <strong>universal</strong> software delivery pack (not
+                  siloed per exam).
+                </p>
+              </div>
             </div>
-            <ProductCard product={universal} />
-          </section>
-        ) : null}
+            <a
+              href="/category/proctoring"
+              className="text-sm font-semibold text-primary hover:underline"
+            >
+              View all proctor tools
+            </a>
+          </div>
+
+          {universal ? (
+            <div id="section-universal" className="mb-6 scroll-mt-24">
+              <ProductCard product={universal} featured />
+            </div>
+          ) : null}
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {proctors.slice(0, 6).map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+          {proctors.length > 6 ? (
+            <div className="mt-4 text-center">
+              <a href="/category/proctoring">
+                <Button variant="outline">
+                  See all {proctors.length} proctor tools
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
+            </div>
+          ) : null}
+        </section>
 
         {bundle ? (
           <section
             id="section-bundle"
-            className="mx-auto mt-14 scroll-mt-24 max-w-6xl rounded-2xl px-4 transition sm:px-6"
+            className="mx-auto mt-16 scroll-mt-24 max-w-6xl px-4 sm:px-6"
           >
-            <h2 className="mb-5 font-display text-2xl font-bold text-fg">
-              Pro bundle
-            </h2>
-            <ProductCard product={bundle} />
+            <SectionHeading
+              eyebrow="Value pack"
+              title="Pro bundle"
+              subtitle="SAT + ACT + lockdown stack in one checkout"
+            />
+            <ProductCard product={bundle} featured />
           </section>
         ) : null}
 
         <CatalogBlock
-          id="section-proctoring"
-          title="Proctor tools"
-          subtitle="LockDown, Honorlock, Proctorio & more"
-          products={proctors}
-          moreHref="/category/proctoring"
-        />
-        <CatalogBlock
           id="section-contests"
+          eyebrow="Olympiads"
           title="Contests"
           subtitle="USACO and major olympiads"
           products={contests}
@@ -239,6 +332,7 @@ function HomePage() {
         />
         <CatalogBlock
           id="section-tools"
+          eyebrow="Extras"
           title="Tools"
           subtitle="Useful extras for study & delivery"
           products={tools}
@@ -247,11 +341,11 @@ function HomePage() {
 
         <section
           id="section-research"
-          className="mx-auto mt-14 grid max-w-6xl scroll-mt-24 gap-4 rounded-2xl px-4 transition sm:grid-cols-2 sm:px-6"
+          className="mx-auto mt-16 grid max-w-6xl scroll-mt-24 gap-4 px-4 sm:grid-cols-2 sm:px-6"
         >
           <Link to="/research" className="group">
             <Card className="h-full border-border/80 bg-surface/95 card-hover">
-              <CardContent className="flex gap-4 p-6">
+              <CardContent className="flex gap-4 p-6 sm:p-7">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                   <FileText className="h-6 w-6" />
                 </span>
@@ -259,7 +353,7 @@ function HomePage() {
                   <h3 className="font-display text-xl font-semibold text-fg group-hover:text-primary">
                     Research papers
                   </h3>
-                  <p className="mt-1 text-sm text-fg-muted">
+                  <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                     Flat $800 package · free Q1/Q2 & add-ons · Stripe checkout
                   </p>
                   <span className="mt-3 inline-flex text-sm font-semibold text-primary">
@@ -272,7 +366,7 @@ function HomePage() {
           <div id="section-internships" className="scroll-mt-24">
             <Link to="/internships" className="group">
               <Card className="h-full border-border/80 bg-surface/95 card-hover">
-                <CardContent className="flex gap-4 p-6">
+                <CardContent className="flex gap-4 p-6 sm:p-7">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                     <Briefcase className="h-6 w-6" />
                   </span>
@@ -280,7 +374,7 @@ function HomePage() {
                     <h3 className="font-display text-xl font-semibold text-fg group-hover:text-primary">
                       Internships
                     </h3>
-                    <p className="mt-1 text-sm text-fg-muted">
+                    <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                       Field + state search · weekly salary estimate · max $1,200
                       base
                     </p>
@@ -293,44 +387,102 @@ function HomePage() {
             </Link>
           </div>
         </section>
+
+        {/* Closing telegram CTA */}
+        <div className="mx-auto mt-16 max-w-6xl px-4 text-center sm:px-6">
+          <p className="text-sm text-fg-muted">
+            Questions before checkout? Message us on Telegram{" "}
+            <a
+              href={SUPPORT_TELEGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-primary hover:underline"
+            >
+              @{SUPPORT_TELEGRAM}
+            </a>
+            .
+          </p>
+        </div>
       </div>
     </Shell>
   );
 }
 
+function SectionHeading({
+  eyebrow,
+  title,
+  subtitle,
+  icon: Icon,
+  moreHref,
+}: {
+  eyebrow?: string;
+  title: string;
+  subtitle: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  moreHref?: string;
+}) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-border/80 pb-4">
+      <div className="flex items-start gap-3">
+        {Icon ? (
+          <span className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+            <Icon className="h-5 w-5" />
+          </span>
+        ) : null}
+        <div>
+          {eyebrow ? (
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">
+              {eyebrow}
+            </p>
+          ) : null}
+          <h2 className="font-display text-2xl font-bold text-fg sm:text-3xl">
+            {title}
+          </h2>
+          <p className="mt-1 text-sm text-fg-muted">{subtitle}</p>
+        </div>
+      </div>
+      {moreHref ? (
+        <a
+          href={moreHref}
+          className="text-sm font-semibold text-primary hover:underline"
+        >
+          View all
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 function CatalogBlock({
   id,
+  eyebrow,
   title,
   subtitle,
   products,
   moreHref,
+  icon,
 }: {
   id?: string;
+  eyebrow?: string;
   title: string;
   subtitle: string;
   products: (typeof PRODUCTS)[number][];
   moreHref?: string;
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
   if (!products.length) return null;
   return (
     <section
       id={id}
-      className="mx-auto mt-14 scroll-mt-24 max-w-6xl rounded-2xl px-4 transition sm:px-6"
+      className="mx-auto mt-16 scroll-mt-24 max-w-6xl px-4 sm:px-6"
     >
-      <div className="mb-5 flex items-end justify-between gap-3">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-fg">{title}</h2>
-          <p className="text-sm text-fg-muted">{subtitle}</p>
-        </div>
-        {moreHref ? (
-          <a
-            href={moreHref}
-            className="text-sm font-semibold text-primary hover:underline"
-          >
-            View all
-          </a>
-        ) : null}
-      </div>
+      <SectionHeading
+        eyebrow={eyebrow}
+        title={title}
+        subtitle={subtitle}
+        icon={icon}
+        moreHref={moreHref}
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {products.map((p) => (
           <ProductCard key={p.id} product={p} />
