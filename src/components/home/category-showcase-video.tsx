@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseShowcasePlayback } from "@/lib/showcase-playback";
+import { cn } from "@/lib/utils";
 
 type PublicVideo = {
   category: string;
@@ -43,8 +44,7 @@ async function loadVideos(): Promise<PublicVideo[]> {
 
 /**
  * Live showcase player for a homepage category section.
- * Hidden when no video is configured. Uploaded files play via
- * `/api/showcase-videos/file/:category` (muted autoplay + controls).
+ * Uses object-fit: contain (letterbox, no crop). Hidden when unset.
  */
 export function CategoryShowcaseVideo({
   category,
@@ -91,7 +91,6 @@ export function CategoryShowcaseVideo({
     [video],
   );
 
-  // When the player scrolls into view, kick muted autoplay (browser-safe)
   useEffect(() => {
     if (playback.kind !== "video" || !playback.src) return;
     const el = videoRef.current;
@@ -104,7 +103,7 @@ export function CategoryShowcaseVideo({
       const p = el.play();
       if (p && typeof p.catch === "function") {
         p.catch(() => {
-          /* autoplay blocked until gesture — controls still available */
+          /* autoplay blocked until gesture */
         });
       }
     };
@@ -129,20 +128,25 @@ export function CategoryShowcaseVideo({
   return (
     <div
       ref={wrapRef}
-      className={
-        className ||
-        "comic-panel video-feature mb-6 w-full overflow-hidden bg-surface"
-      }
+      data-showcase=""
+      className={cn(
+        "category-video-frame overflow-hidden rounded-xl border-2 border-border-strong bg-[#140e0a]",
+        className,
+      )}
     >
-      <div className="video-stage relative w-full overflow-hidden rounded-t-[calc(var(--radius-xl)-2px)] bg-[#140e0a]">
-        <span className="comic-sticker absolute left-3 top-3 z-10 float-soft" aria-hidden>
+      {/* Fixed 16:9 frame; media uses object-contain so uploads aren’t cropped */}
+      <div className="relative flex aspect-video w-full items-center justify-center bg-[#140e0a]">
+        <span
+          className="comic-sticker absolute left-2 top-2 z-10 sm:left-3 sm:top-3"
+          aria-hidden
+        >
           LIVE
         </span>
         {playback.kind === "youtube" || playback.kind === "vimeo" ? (
           <iframe
             title={video?.label || `${category} showcase`}
             src={playback.embedSrc || undefined}
-            className="absolute inset-0 h-full w-full"
+            className="h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             loading="eager"
@@ -150,7 +154,7 @@ export function CategoryShowcaseVideo({
         ) : playback.src ? (
           <video
             ref={videoRef}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="h-full w-full object-contain"
             src={playback.src}
             autoPlay
             muted
@@ -162,7 +166,7 @@ export function CategoryShowcaseVideo({
         ) : null}
       </div>
       {video?.label ? (
-        <p className="border-t-2 border-border-strong/20 bg-accent-soft/50 px-3 py-2.5 text-xs font-bold text-fg sm:px-4">
+        <p className="border-t-2 border-border-strong/25 bg-accent-soft/60 px-3 py-2 text-xs font-bold text-fg">
           {video.label}
         </p>
       ) : null}

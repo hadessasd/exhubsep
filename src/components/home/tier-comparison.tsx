@@ -25,14 +25,14 @@ const TIER_META: Record<
     tone: "from-primary-soft/80 to-accent-soft/50",
     bar: "bg-primary",
     label: "Pro",
-    hook: "Score pathway + priority",
+    hook: "Pathway guarantee + priority",
   },
   premium: {
     icon: Crown,
     tone: "from-accent-soft to-success-soft/70",
     bar: "bg-success",
     label: "Premium",
-    hook: "Coaching + same-day SLA",
+    hook: "Top guarantee + coaching",
   },
 };
 

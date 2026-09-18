@@ -224,7 +224,7 @@ const SAT_FEATURES = {
   ],
   pro: [
     "Everything in Standard",
-    "Guaranteed 1600 SAT pathway",
+    "Guaranteed 1580+ SAT score",
     "Enhanced sandbox isolation",
     "Leak-aware adaptive modules",
     "Priority live support",
@@ -232,7 +232,7 @@ const SAT_FEATURES = {
   ],
   premium: [
     "Everything in Pro",
-    "Guaranteed 1600 SAT result pathway",
+    "1600 every time — perfect-score guarantee",
     "Maximum-security sandbox stack",
     "1:1 strategy coaching session",
     "Unlimited retake practice packs",
@@ -349,8 +349,12 @@ function examFeatures(exam: ExamFamily, tier: ProductTier): string[] {
   return [...GRE_FEATURES[tier]];
 }
 
-function examScoreLabel(exam: ExamFamily): string {
-  if (exam === "sat") return "1600";
+function examScoreLabel(exam: ExamFamily, tier?: ProductTier): string {
+  if (exam === "sat") {
+    if (tier === "pro") return "1580+";
+    if (tier === "premium") return "1600";
+    return "SAT";
+  }
   if (exam === "act") return "36";
   if (exam === "gmat") return "705+";
   return "330+";
@@ -378,9 +382,33 @@ function examProduct(
   const label = exam.toUpperCase();
   const features = examFeatures(exam, tier);
   const tierLabel = tier[0]!.toUpperCase() + tier.slice(1);
-  const score = examScoreLabel(exam);
+  const score = examScoreLabel(exam, tier);
   const name = `${label} ${tierLabel}`;
   const paymentLink = defaultPaymentLinkForProduct(exam, tier);
+  const satProShort =
+    "SAT Pro — guaranteed 1580+ with enhanced sandboxing & priority support";
+  const satPremiumShort =
+    "SAT Premium — 1600 every time, max sandbox, coaching & same-day SLA";
+  const shortDescription =
+    exam === "sat" && tier === "pro"
+      ? satProShort
+      : exam === "sat" && tier === "premium"
+        ? satPremiumShort
+        : tier === "standard"
+          ? `AI-powered ${label} prep with standard sandboxing`
+          : tier === "pro"
+            ? `Pro ${label} pathway with enhanced sandboxing and score guarantee`
+            : `Premium ${label} pathway — top-tier sandbox, coaching, and guarantees`;
+  const longDescription =
+    exam === "sat" && tier === "pro"
+      ? "ExamHub SAT Pro upgrades isolation, unlocks leak-aware adaptive modules, and guarantees a 1580+ pathway with priority live support."
+      : exam === "sat" && tier === "premium"
+        ? "ExamHub SAT Premium is the flagship stack: maximum sandbox security, 1600 every time, 1:1 coaching, unlimited practice, and same-day support."
+        : tier === "standard"
+          ? `ExamHub ${label} Standard pairs a modern AI practice engine with a reliable sandbox. Ideal for students who want structured prep, digital exam coverage, and clear progress tracking.`
+          : tier === "pro"
+            ? `ExamHub ${label} Pro upgrades isolation, unlocks leak-aware adaptive modules, and targets a top score pathway (${score}) with priority support.`
+            : `ExamHub ${label} Premium is the flagship stack: maximum sandbox security, guaranteed top-score pathway, 1:1 coaching, unlimited practice, and same-day support.`;
   return {
     id: `${exam}-${tier}`,
     slug: `${exam}-${tier}`,
@@ -388,38 +416,44 @@ function examProduct(
     category: exam,
     tier,
     priceUsd: price,
-    shortDescription:
-      tier === "standard"
-        ? `AI-powered ${label} prep with standard sandboxing`
-        : tier === "pro"
-          ? `Pro ${label} pathway with enhanced sandboxing and score guarantee`
-          : `Premium ${label} pathway — top-tier sandbox, coaching, and guarantees`,
-    longDescription:
-      tier === "standard"
-        ? `ExamHub ${label} Standard pairs a modern AI practice engine with a reliable sandbox. Ideal for students who want structured prep, digital exam coverage, and clear progress tracking.`
-        : tier === "pro"
-          ? `ExamHub ${label} Pro upgrades isolation, unlocks leak-aware adaptive modules, and targets a top score pathway (${score}) with priority support.`
-          : `ExamHub ${label} Premium is the flagship stack: maximum sandbox security, guaranteed top-score pathway, 1:1 coaching, unlimited practice, and same-day support.`,
+    shortDescription,
+    longDescription,
     features: [...features],
     giftCardUrl: GIFT_CARD_LINKS[giftKey],
     stripeBuyButtonId:
       exam === "gmat" || exam === "gre" ? undefined : stripeButtonForTier(tier),
     stripePaymentLinkUrl: paymentLink,
     badge:
-      tier === "premium" ? "Best results" : tier === "pro" ? "Most popular" : undefined,
+      exam === "sat" && tier === "premium"
+        ? "1600 every time"
+        : exam === "sat" && tier === "pro"
+          ? "1580+ guarantee"
+          : tier === "premium"
+            ? "Best results"
+            : tier === "pro"
+              ? "Most popular"
+              : undefined,
     seoTitle: powerSeoTitle(
       name,
       price,
       label,
-      tier === "premium"
-        ? `${score} Guarantee Premium`
-        : tier === "pro"
-          ? `${score} Pathway Pro Sandbox`
-          : "AI Standard Sandbox",
+      exam === "sat" && tier === "premium"
+        ? "1600 Every Time Premium"
+        : exam === "sat" && tier === "pro"
+          ? "1580+ Guarantee Pro"
+          : tier === "premium"
+            ? `${score} Guarantee Premium`
+            : tier === "pro"
+              ? `${score} Pathway Pro Sandbox`
+              : "AI Standard Sandbox",
     ),
     seoDescription: powerSeoDesc(
       name,
-      `Buy ${label} ${tierLabel} on ExamHub for $${price}. AI sandbox prep${tier !== "standard" ? `, enhanced isolation, and ${score} score pathway` : ""}.`,
+      exam === "sat" && tier === "premium"
+        ? `Buy SAT Premium for $${price}. 1600 every time — max sandbox, coaching, same-day SLA.`
+        : exam === "sat" && tier === "pro"
+          ? `Buy SAT Pro for $${price}. Guaranteed 1580+ with enhanced isolation and priority support.`
+          : `Buy ${label} ${tierLabel} on ExamHub for $${price}. AI sandbox prep${tier !== "standard" ? `, enhanced isolation, and ${score} score pathway` : ""}.`,
       price,
     ),
     seoKeywords: [

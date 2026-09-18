@@ -514,6 +514,20 @@ header.sticky {
   color: #fff;
 }
 
+
+.category-box {
+  box-shadow: 6px 6px 0 rgb(26 18 12 / 0.2);
+}
+
+.category-video-frame {
+  box-shadow: 3px 3px 0 rgb(26 18 12 / 0.18);
+}
+
+.category-video-frame video {
+  object-fit: contain;
+  background: #140e0a;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .doodle-item,
   .doodle-orb,

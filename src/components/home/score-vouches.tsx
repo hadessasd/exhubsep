@@ -122,20 +122,51 @@ export function ScoreVouches() {
       className="mx-auto scroll-mt-24 max-w-6xl px-3 sm:px-6"
     >
       <div className="comic-panel overflow-hidden bg-surface">
-        {/* Compact bar — always visible */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border-strong/15 bg-gradient-to-r from-success-soft/80 via-surface to-accent-soft/50 px-4 py-3.5 sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="comic-sticker !rotate-[-4deg]">Trust</span>
+        {/* Compact summary — always visible; full content stays collapsed */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-success-soft/90 via-surface to-accent-soft/60 px-4 py-4 sm:px-5">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 sm:gap-5">
+            <div className="flex shrink-0 items-center gap-3 rounded-2xl border-2 border-border-strong bg-surface px-3.5 py-2.5 shadow-[3px_3px_0_rgb(26_18_12/0.18)]">
+              <div className="text-center">
+                <p className="font-display text-3xl font-bold leading-none text-fg sm:text-4xl">
+                  {avg.toFixed(1)}
+                </p>
+                <p className="mt-0.5 text-[10px] font-black uppercase tracking-wider text-muted">
+                  avg
+                </p>
+              </div>
+              <div className="border-l-2 border-border-strong/15 pl-3">
+                <div className="flex items-center gap-0.5" aria-label={`${avg.toFixed(1)} out of 5 stars`}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star
+                      key={i}
+                      className={cn(
+                        "h-4 w-4 sm:h-5 sm:w-5",
+                        i <= Math.round(avg)
+                          ? "fill-accent text-accent"
+                          : "text-border",
+                      )}
+                    />
+                  ))}
+                </div>
+                <p className="mt-1 text-xs font-bold text-fg-muted">
+                  <span className="text-success">{count.toLocaleString()}</span>{" "}
+                  student ratings
+                </p>
+              </div>
+            </div>
             <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                <span className="comic-sticker !rotate-[-4deg]">Trust</span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-border-strong/20 bg-success-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success">
+                  <ShieldCheck className="h-3 w-3" />
+                  Verified vouches
+                </span>
+              </div>
               <p className="font-display text-base font-bold text-fg sm:text-lg">
-                Student reviews & score vouches
+                Student reviews & score photos
               </p>
               <p className="text-xs font-semibold text-fg-muted">
-                <span className="text-success">{avg.toFixed(1)}★</span>
-                {" · "}
-                {count.toLocaleString()} ratings
-                {" · "}
-                hidden until you view
+                Summary always on · full reviews open on click
               </p>
             </div>
           </div>

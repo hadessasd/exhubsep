@@ -262,29 +262,33 @@ function HomePage() {
             </a>
           </div>
 
-          <CategoryShowcaseVideo category="proctor" className="comic-panel video-feature mb-6 w-full overflow-hidden bg-surface" />
-
-          {universal ? (
-            <div id="section-universal" className="mb-6 scroll-mt-24">
-              <ProductCard product={universal} featured />
+          <div className="comic-panel category-box overflow-hidden bg-surface p-3 sm:p-4">
+            <div className="grid gap-4 lg:has-[data-showcase]:grid-cols-[minmax(220px,38%)_minmax(0,1fr)] lg:has-[data-showcase]:items-start">
+              <CategoryShowcaseVideo category="proctor" />
+              <div className="min-w-0 space-y-4">
+                {universal ? (
+                  <div id="section-universal" className="scroll-mt-24">
+                    <ProductCard product={universal} featured />
+                  </div>
+                ) : null}
+                <div className="stagger-in grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {proctors.slice(0, 6).map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+                {proctors.length > 6 ? (
+                  <div className="text-center">
+                    <a href="/category/proctoring">
+                      <Button variant="outline" className="btn-comic">
+                        See all {proctors.length} proctor tools
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
+                ) : null}
+              </div>
             </div>
-          ) : null}
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {proctors.slice(0, 6).map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
           </div>
-          {proctors.length > 6 ? (
-            <div className="mt-4 text-center">
-              <a href="/category/proctoring">
-                <Button variant="outline">
-                  See all {proctors.length} proctor tools
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </a>
-            </div>
-          ) : null}
         </section>
 
         {bundle ? (
@@ -467,17 +471,23 @@ function CatalogBlock({
           icon={icon}
           moreHref={moreHref}
         />
-        {showcaseCategory ? (
-          <CategoryShowcaseVideo
-            category={showcaseCategory}
-            className="comic-panel video-feature mb-6 w-full overflow-hidden bg-surface"
-          />
-        ) : null}
-        {hasTiers ? <TierComparison products={products} /> : null}
-        <div className="stagger-in grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
+        {/* One category box: video + packages side-by-side (stacked on mobile) */}
+        <div className="comic-panel category-box overflow-hidden bg-surface p-3 sm:p-4">
+          <div className="grid gap-4 lg:has-[data-showcase]:grid-cols-[minmax(220px,38%)_minmax(0,1fr)] lg:has-[data-showcase]:items-start">
+            {showcaseCategory ? (
+              <CategoryShowcaseVideo category={showcaseCategory} />
+            ) : null}
+            <div className="min-w-0 space-y-4">
+              {hasTiers ? (
+                <TierComparison products={products} className="!mb-0" />
+              ) : null}
+              <div className="stagger-in grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {products.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </Reveal>
