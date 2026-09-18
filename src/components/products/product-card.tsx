@@ -17,9 +17,9 @@ export function ProductCard({
   return (
     <Card
       className={cn(
-        "card-hover flex h-full flex-col overflow-hidden",
+        "card-hover comic-panel flex h-full flex-col overflow-hidden border-border-strong",
         featured &&
-          "border-primary/35 bg-gradient-to-br from-surface via-surface to-primary-soft/40 shadow-md",
+          "bg-gradient-to-br from-surface via-accent-soft/30 to-primary-soft/50",
       )}
     >
       <CardContent
@@ -30,7 +30,10 @@ export function ProductCard({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+            {featured ? (
+              <span className="comic-sticker mb-2 inline-flex">Campus pick</span>
+            ) : null}
+            <p className="text-xs font-extrabold uppercase tracking-wider text-primary">
               {product.category === "proctoring"
                 ? "Proctor tool"
                 : product.category.toUpperCase()}

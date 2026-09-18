@@ -14,6 +14,7 @@ import {
 } from "@/lib/data/catalog";
 import { ProductCard } from "@/components/products/product-card";
 import { CategoryShowcaseVideo } from "@/components/home/category-showcase-video";
+import { Reveal } from "@/components/home/reveal";
 import {
   ArrowRight,
   ShieldCheck,
@@ -84,12 +85,12 @@ function HomePage() {
         <HeroSearch />
 
         {/* Prominent Telegram */}
-        <div className="mx-auto mt-7 max-w-6xl px-4 sm:px-6">
+        <Reveal className="mx-auto mt-7 max-w-6xl px-4 sm:px-6">
           <a
             href={SUPPORT_TELEGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative flex flex-col overflow-hidden rounded-3xl border border-[#2AABEE]/40 bg-gradient-to-r from-[#1d9bd5] via-[#2AABEE] to-[#6ec8f5] p-[1px] shadow-lg transition hover:shadow-xl sm:flex-row"
+            className="group relative flex flex-col overflow-hidden rounded-3xl border-[2.5px] border-border-strong bg-gradient-to-r from-[#1d9bd5] via-[#2AABEE] to-[#6ec8f5] p-[1px] shadow-lg transition hover:shadow-xl sm:flex-row"
           >
             <div className="flex flex-1 flex-col gap-3 rounded-[1.4rem] bg-[#0e7fb8]/95 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-6">
               <div className="flex items-start gap-4">
@@ -115,14 +116,14 @@ function HomePage() {
               </span>
             </div>
           </a>
-        </div>
+        </Reveal>
 
         {/* Jump nav for neat exam sections */}
         <nav
           aria-label="Exam sections"
           className="mx-auto mt-6 max-w-6xl px-4 sm:px-6"
         >
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/80 bg-surface/90 p-2 shadow-sm">
+          <div className="comic-panel flex flex-wrap items-center gap-2 bg-surface/95 p-2">
             <span className="px-2 text-[11px] font-bold uppercase tracking-wider text-muted">
               Jump to
             </span>
@@ -168,7 +169,7 @@ function HomePage() {
             ].map((item) => (
               <Card
                 key={item.title}
-                className="border-border/80 bg-surface/95 shadow-sm card-hover"
+                className="comic-panel card-hover bg-surface/95"
               >
                 <CardContent className="flex gap-3 p-5">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">
@@ -260,7 +261,7 @@ function HomePage() {
             </a>
           </div>
 
-          <CategoryShowcaseVideo category="proctor" />
+          <CategoryShowcaseVideo category="proctor" className="comic-panel mb-5 max-w-3xl overflow-hidden bg-surface" />
 
           {universal ? (
             <div id="section-universal" className="mb-6 scroll-mt-24">
@@ -452,28 +453,30 @@ function CatalogBlock({
 }) {
   if (!products.length) return null;
   return (
-    <section
-      id={id}
-      className="mx-auto mt-16 scroll-mt-24 max-w-6xl px-4 sm:px-6"
-    >
-      <SectionHeading
-        eyebrow={eyebrow}
-        title={title}
-        subtitle={subtitle}
-        icon={icon}
-        moreHref={moreHref}
-      />
-      {showcaseCategory ? (
-        <CategoryShowcaseVideo
-          category={showcaseCategory}
-          className="mb-5 max-w-3xl overflow-hidden rounded-2xl border border-border bg-surface shadow-sm"
+    <Reveal>
+      <section
+        id={id}
+        className="mx-auto mt-16 scroll-mt-24 max-w-6xl px-4 sm:px-6"
+      >
+        <SectionHeading
+          eyebrow={eyebrow}
+          title={title}
+          subtitle={subtitle}
+          icon={icon}
+          moreHref={moreHref}
         />
-      ) : null}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </div>
-    </section>
+        {showcaseCategory ? (
+          <CategoryShowcaseVideo
+            category={showcaseCategory}
+            className="comic-panel mb-5 max-w-3xl overflow-hidden bg-surface"
+          />
+        ) : null}
+        <div className="stagger-in grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {products.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      </section>
+    </Reveal>
   );
 }

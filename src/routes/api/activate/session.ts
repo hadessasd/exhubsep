@@ -13,10 +13,8 @@ import {
   resolveDeliveryAssetsBothOs,
 } from "@/lib/server/delivery";
 import {
-  upsertMachine,
-  findMachineByInput,
+  issuePurchaseAuthKey,
   listMachinesByStripeSession,
-  clientIp,
   json,
   jsonError,
   whitelistCategoryFromProductKey,
@@ -81,10 +79,45 @@ export const Route = createFileRoute("/api/activate/session")({
               ? await getProjectBySession(sessionId)
               : null;
 
-          const machines =
+          let machines =
             classification.flow === "progress"
               ? []
               : await listMachinesByStripeSession(sessionId);
+
+          // Software purchases: ensure an active auth code exists (no serial / machine binding)
+          let issuedAuthCode: string | null = null;
+          if (
+            classification.flow === "os_serial" ||
+            classification.flow === "proctor_serial"
+          ) {
+            const hasActiveToken = machines.some(
+              (m) => m.sessionToken && m.status !== "blocked",
+            );
+            // Only auto-issue when product key already identifies a category
+            // (bare tier "pro"/"standard" needs exam pick via POST first)
+            const bareTier = ["standard", "pro", "premium"].includes(
+              (payment.productKey || "").toLowerCase(),
+            );
+            if (!hasActiveToken && !bareTier) {
+              const issued = await issuePurchaseAuthKey({
+                productKey: payment.productKey,
+                stripeSessionId: sessionId,
+                keyName: undefined,
+              });
+              issuedAuthCode = issued.authCode;
+              if (issued.created) {
+                try {
+                  await markSerialConsumed(sessionId);
+                } catch {
+                  /* non-fatal — consume tracking is best-effort */
+                }
+              }
+              machines = await listMachinesByStripeSession(sessionId);
+            } else if (hasActiveToken) {
+              issuedAuthCode =
+                machines.find((m) => m.sessionToken)?.sessionToken || null;
+            }
+          }
 
           // Resolve delivery from most recent machine or product defaults
           let delivery: Array<{
@@ -215,6 +248,10 @@ export const Route = createFileRoute("/api/activate/session")({
               productKey: m.productKey,
               authCode: m.sessionToken,
             })),
+            authCode:
+              issuedAuthCode ||
+              machines.find((m) => m.sessionToken)?.sessionToken ||
+              null,
             delivery,
             deliveryByOs,
           });
@@ -223,12 +260,12 @@ export const Route = createFileRoute("/api/activate/session")({
         }
       },
 
-      /** Register serial (SAT/ACT/proctor) or create progress project */
+      /** Issue auth code (software) or create progress project */
       POST: async ({ request }) => {
         try {
           const body = (await request.json()) as {
             sessionId?: string;
-            action?: "register_serial" | "create_project";
+            action?: "issue_auth" | "register_serial" | "create_project";
             os?: "macos" | "windows";
             serial?: string;
             exam?: "sat" | "act" | "gmat" | "gre";
@@ -261,7 +298,7 @@ export const Route = createFileRoute("/api/activate/session")({
             body.action ||
             (classification.flow === "progress"
               ? "create_project"
-              : "register_serial");
+              : "issue_auth");
 
           if (action === "create_project") {
             const existing = await getProjectBySession(sessionId);
@@ -293,38 +330,14 @@ export const Route = createFileRoute("/api/activate/session")({
             });
           }
 
-          // register_serial — Stripe paid → status active (auto-whitelist)
-          const serial = body.serial?.trim();
-          if (!serial) return jsonError("Serial number required", 400);
+          // issue_auth — Stripe paid → active auth code (no serial / machine binding)
+          // `register_serial` kept as alias for older clients; serial is ignored.
+          if (action !== "issue_auth" && action !== "register_serial") {
+            return jsonError("Unknown action", 400);
+          }
 
-          // A serial belongs to one paid activation. Retrying the same session is
-          // safe/idempotent; a different paid session cannot silently steal it.
-          // Whitelist scope is software category (sat/act/gre/gmat/proctor), not tier
           const whitelistCategory = whitelistCategoryFromProductKey(productKey);
-          const alreadyRegistered = await findMachineByInput(
-            serial,
-            whitelistCategory,
-          );
-          if (
-            alreadyRegistered?.stripeSessionId &&
-            alreadyRegistered.stripeSessionId !== sessionId
-          ) {
-            return jsonError(
-              `This serial is already registered to another purchase on ${whitelistCategory}`,
-              409,
-            );
-          }
-          const samePaidActivation =
-            alreadyRegistered?.stripeSessionId === sessionId &&
-            alreadyRegistered.status === "active";
-          if (!samePaidActivation && payment.consumeCount >= payment.maxSerials) {
-            return jsonError(
-              `This payment already registered ${payment.maxSerials} machine(s)`,
-              400,
-            );
-          }
-
-          const os = body.os === "windows" ? "windows" : "macos";
+          const os = body.os === "windows" ? "windows" : body.os === "macos" ? "macos" : null;
           const exam =
             body.exam ||
             classification.exam ||
@@ -338,8 +351,6 @@ export const Route = createFileRoute("/api/activate/session")({
                     ? "sat"
                     : null);
           const tier = tierFromKey(productKey, classification);
-
-          const note = `Serial stored as SHA-256 only\nOS: ${os}\nProduct: ${productKey}\nSource: stripe (auto-active)`;
           const labelKind = (
             exam ||
             classification.kind ||
@@ -348,43 +359,32 @@ export const Route = createFileRoute("/api/activate/session")({
           const keyName =
             body.keyName?.trim() ||
             (classification.kind === "proctor" || classification.kind === "tools"
-              ? `${labelKind} · ${os} · paid`
-              : `${labelKind} ${tier} · ${os} · paid`);
+              ? `${labelKind} · paid auth code`
+              : `${labelKind} ${tier} · paid auth code`);
 
-          const machine = await upsertMachine({
-            keyName,
-            machineInput: serial,
-            hostname: os,
-            note,
-            status: "active",
-            forever: true,
-            os,
-            lastIp: await clientIp(request),
+          const issued = await issuePurchaseAuthKey({
             productKey: whitelistCategory,
-            source: "stripe",
             stripeSessionId: sessionId,
-            rawSerialNote: null,
+            os,
+            keyName,
+            note: `Stripe purchase · product ${productKey} · category ${whitelistCategory} · auth-key only (no serial)`,
           });
 
-          if (!samePaidActivation) {
-            await markSerialConsumed(sessionId);
+          if (issued.created) {
+            try {
+              await markSerialConsumed(sessionId);
+            } catch {
+              /* best-effort */
+            }
           }
 
           const assets = await resolveDeliveryAssets({
             productKey,
             exam,
             tier,
-            os,
+            os: os || undefined,
             kind: classification.kind,
           });
-
-          // Ensure buyer gets a fresh auth code (session token) for the daemon
-          let authCode = machine.sessionToken;
-          if (!authCode) {
-            const { regenerateToken } = await import("@/lib/server/whitelist");
-            const refreshed = await regenerateToken(machine.id);
-            authCode = refreshed.sessionToken;
-          }
 
           const both = await resolveDeliveryAssetsBothOs({
             productKey,
@@ -396,23 +396,22 @@ export const Route = createFileRoute("/api/activate/session")({
           return json({
             ok: true,
             machine: {
-              id: machine.id,
-              keyName: machine.keyName,
+              id: issued.row.id,
+              keyName: issued.row.keyName,
               status: "active",
-              os,
+              os: os || issued.row.os || "—",
               productKey,
               whitelistCategory,
             },
-            authCode,
+            authCode: issued.authCode,
             delivery: mapDeliveryAssets(assets),
             deliveryByOs: {
               macos: mapDeliveryAssets(both.macos),
               windows: mapDeliveryAssets(both.windows),
             },
-            remainingSerials: Math.max(
-              0,
-              payment.maxSerials - payment.consumeCount - (samePaidActivation ? 0 : 1),
-            ),
+            remainingSerials: 0,
+            message:
+              "Auth code ready. Enter it in the ExamHub app — no serial registration.",
           });
         } catch (err) {
           return jsonError(err, 400);

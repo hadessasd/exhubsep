@@ -874,6 +874,69 @@ export type ManualAuthKeyRow = {
 
 const SOFTWARE_CATS = new Set(["sat", "act", "gre", "gmat", "proctor"]);
 
+
+/** Stripe (or similar) purchase → one active auth code for the software category. No serial. */
+export async function issuePurchaseAuthKey(input: {
+  /** Full product id or category (`sat-pro` → `sat`) */
+  productKey: string;
+  stripeSessionId: string;
+  os?: string | null;
+  keyName?: string;
+  note?: string | null;
+}): Promise<{ row: MachineRow; authCode: string; created: boolean }> {
+  await ensureMachineTable();
+  const sql = await getSql();
+  const sessionId = input.stripeSessionId.trim();
+  if (!sessionId) throw new Error("stripeSessionId required");
+  const category = normalizeWhitelistProductKey(input.productKey);
+  if (!SOFTWARE_CATS.has(category) && category !== GENERAL_WHITELIST_KEY) {
+    throw new Error(`Not a software category: ${category}`);
+  }
+
+  // Idempotent: reuse existing active token for this Stripe session
+  const existing = (await sql`
+    SELECT * FROM machine_whitelist
+    WHERE stripe_session_id = ${sessionId}
+      AND session_token IS NOT NULL
+      AND status <> 'blocked'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `) as Array<Record<string, unknown>>;
+  if (existing[0]) {
+    const m = rowToMachine(existing[0]);
+    return {
+      row: m,
+      authCode: m.sessionToken!,
+      created: false,
+    };
+  }
+
+  const id = uid("m");
+  const token = newSessionToken();
+  const os = input.os?.trim() || null;
+  const keyName =
+    input.keyName?.trim() ||
+    `Purchase · ${category.toUpperCase()} · auth code`;
+  const note =
+    input.note?.trim() ||
+    `Stripe purchase auth code for category ${category} (no serial)`;
+
+  await sql`
+    INSERT INTO machine_whitelist (
+      id, key_name, machine_id_hash, serial_number, hostname, note, status,
+      expires_at, session_token, product_key, source, stripe_session_id, os
+    ) VALUES (
+      ${id}, ${keyName}, ${null}, ${null}, ${null}, ${note}, 'active',
+      ${null}, ${token}, ${category}, 'stripe', ${sessionId}, ${os}
+    )
+  `;
+
+  const row = await getMachineById(id);
+  if (!row?.sessionToken) throw new Error("Failed to issue auth code");
+  return { row, authCode: row.sessionToken, created: true };
+}
+
+
 /** Admin: mint an auth key for a software category (no Stripe). Key stays valid until revoke/expiry. */
 export async function createManualAuthKey(input: {
   category: string;

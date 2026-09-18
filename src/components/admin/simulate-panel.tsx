@@ -164,7 +164,7 @@ export function SimulatePanel() {
         <p className="mt-1 max-w-2xl text-sm text-fg-muted">
           No Stripe, no real charge. Creates a fake paid session the same way a
           webhook would, then either opens Activate like a buyer, or instantly
-          whitelists a serial / creates a progress link.
+          issues an auth code / creates a progress link.
         </p>
       </div>
 
@@ -172,11 +172,11 @@ export function SimulatePanel() {
         {[
           {
             title: "1 · Fake payment only",
-            body: "Get an Activate link. Walk OS + serial or contact yourself.",
+            body: "Get an Activate link — software auto-issues auth code; services need contact.",
           },
           {
             title: "2 · Pay + whitelist",
-            body: "One click: paid + serial → Machines tab shows active (source: stripe).",
+            body: "One click: paid → active auth code on Machines (source: stripe).",
           },
           {
             title: "3 · Pay + progress",
@@ -270,7 +270,7 @@ export function SimulatePanel() {
                         : "border-border",
                     )}
                   >
-                    Pay + whitelist serial
+                    Pay + issue auth code
                   </button>
                 ) : null}
                 {isProgress ? (
@@ -335,7 +335,7 @@ export function SimulatePanel() {
                   </div>
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="sim-serial">Serial / machine ID</Label>
+                  <Label htmlFor="sim-serial">Serial (legacy optional — ignored for auth codes)</Label>
                   <Input
                     id="sim-serial"
                     required
@@ -345,7 +345,7 @@ export function SimulatePanel() {
                     className="font-mono text-sm"
                   />
                   <p className="text-[11px] text-muted">
-                    Hashed with SHA-256 for the whitelist. The raw serial is not stored.
+                    Not required. Software auth uses the issued auth code only.
                     Status = active (same as Stripe auto-verify).
                   </p>
                 </div>

@@ -109,16 +109,17 @@ export function HeroSearch() {
   return (
     <section id="catalog" className="scroll-mt-24">
       <div className="stagger-in mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="relative overflow-hidden rounded-3xl border border-border bg-surface/90 p-6 shadow-glow sm:p-10">
+        <div className="comic-panel relative overflow-hidden bg-surface/95 p-6 halftone-wash sm:p-10">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-primary-soft blur-3xl" />
           <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-accent-soft blur-3xl" />
 
           <div className="relative">
             <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="comic-sticker">Campus HQ</span>
               <Badge>US · UK · Europe · Global</Badge>
             </div>
             <h1 className="max-w-2xl font-display text-3xl font-bold tracking-tight text-fg sm:text-5xl">
-              Exam prep that actually{" "}
+              Exam prep that hits{" "}
               <span className="text-primary">feels premium</span>
             </h1>
             <p className="mt-4 max-w-xl text-base text-fg-muted sm:text-lg">

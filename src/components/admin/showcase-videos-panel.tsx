@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Film, RefreshCw, Trash2, Upload } from "lucide-react";
+import { invalidateShowcaseVideoCache } from "@/components/home/category-showcase-video";
 
 type VideoRow = {
   id: string;
@@ -90,11 +91,18 @@ export function ShowcaseVideosPanel() {
       toast.error("Max ~40MB — use an external URL for larger videos");
       return;
     }
-    const buf = await file.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
-    const b64 = btoa(binary);
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Could not read file"));
+      reader.readAsDataURL(file);
+    });
+    const idx = dataUrl.indexOf("base64,");
+    const b64 = idx >= 0 ? dataUrl.slice(idx + 7) : dataUrl;
+    if (!b64) {
+      toast.error("Empty file");
+      return;
+    }
     setFileData(b64);
     setFileName(file.name);
     setFileMime(file.type || "video/mp4");
@@ -126,6 +134,7 @@ export function ShowcaseVideosPanel() {
       toast.success(`Saved ${LABELS[active] || active} showcase video`);
       setFileData(null);
       setClearBlob(false);
+      invalidateShowcaseVideoCache();
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Save failed");
@@ -147,6 +156,7 @@ export function ShowcaseVideosPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Clear failed");
       toast.success("Cleared");
+      invalidateShowcaseVideoCache();
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Clear failed");
@@ -175,9 +185,11 @@ export function ShowcaseVideosPanel() {
           </Button>
         </div>
         <p className="text-sm text-fg-muted">
-          Attach a video beside each homepage category (SAT / ACT / GRE / GMAT /
-          Proctor). Paste a YouTube, Vimeo, or direct mp4 URL, and/or upload a
-          file. Plays muted with autoplay on the public homepage when set.
+          Attach a showcase video beside each homepage category (SAT / ACT /
+          GRE / GMAT / Proctor). Upload an mp4/webm (preferred — plays from
+          /api/showcase-videos/file/:category) and/or paste YouTube, Vimeo, or
+          a direct mp4 URL. Homepage plays muted autoplay + controls when set;
+          empty categories hide the player.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

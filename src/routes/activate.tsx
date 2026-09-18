@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Shell } from "@/components/layout/shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Apple,
   CheckCircle2,
   Copy,
   ExternalLink,
   Loader2,
-  Monitor,
   ShieldCheck,
 } from "lucide-react";
 import { cn, formatUsd } from "@/lib/utils";
@@ -79,6 +77,7 @@ type SessionPayload = {
     status: string;
     progressUrl: string;
   } | null;
+  authCode?: string | null;
   existingMachines?: Array<{
     id: string;
     keyName: string;
@@ -209,7 +208,6 @@ function ActivatePage() {
 
   const [os, setOs] = useState<"macos" | "windows" | null>(null);
   const [exam, setExam] = useState<"sat" | "act" | "gmat" | "gre">("sat");
-  const [serial, setSerial] = useState("");
   const [done, setDone] = useState<{
     machine?: {
       keyName: string;
@@ -245,19 +243,33 @@ function ActivatePage() {
 
       if (payload.existingProject?.progressUrl) {
         setDone({ progressUrl: payload.existingProject.progressUrl });
-      } else if (payload.existingMachines?.length) {
-        const m = payload.existingMachines[0]!;
+      } else if (
+        payload.authCode ||
+        payload.existingMachines?.some((m) => m.authCode)
+      ) {
+        const m = payload.existingMachines?.[0];
+        const code =
+          payload.authCode ||
+          payload.existingMachines?.find((x) => x.authCode)?.authCode ||
+          null;
         setDone({
-          machine: {
-            keyName: m.keyName,
-            status: m.status,
-            os: m.os || "—",
-            productKey: m.productKey || payload.payment.productKey,
-          },
-          authCode: m.authCode || null,
+          machine: m
+            ? {
+                keyName: m.keyName,
+                status: m.status,
+                os: m.os || "—",
+                productKey: m.productKey || payload.payment.productKey,
+              }
+            : {
+                keyName: "Auth code",
+                status: "active",
+                os: "—",
+                productKey: payload.payment.productKey,
+              },
+          authCode: code,
           delivery: payload.delivery || [],
           deliveryByOs: payload.deliveryByOs,
-          remainingSerials: payload.payment.remainingSerials,
+          remainingSerials: 0,
         });
       } else {
         setDone(null);
@@ -284,19 +296,11 @@ function ActivatePage() {
     return ["standard", "pro", "premium"].includes(k);
   }, [data]);
 
-  const canAddAnotherSerial = useMemo(() => {
-    if (!data) return false;
-    return (
-      (data.classification.flow === "os_serial" ||
-        data.classification.flow === "proctor_serial") &&
-      data.payment.remainingSerials > 0
-    );
-  }, [data]);
-
-  async function registerSerial(e: React.FormEvent) {
-    e.preventDefault();
-    if (!data || !os || !serial.trim()) {
-      toast.error("Choose OS and enter serial");
+  async function issueAuth(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!data) return;
+    if (needsExamPick && !exam) {
+      toast.error("Pick an exam");
       return;
     }
     setBusy(true);
@@ -307,23 +311,21 @@ function ActivatePage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           sessionId: data.payment.sessionId,
-          action: "register_serial",
-          os,
-          serial: serial.trim(),
+          action: "issue_auth",
+          os: os || undefined,
           exam: needsExamPick ? exam : data.classification.exam,
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Activation failed");
+      if (!res.ok) throw new Error(json?.error || "Could not issue auth code");
       setDone({
         machine: json.machine,
         authCode: json.authCode || null,
         delivery: json.delivery,
         deliveryByOs: json.deliveryByOs,
-        remainingSerials: json.remainingSerials,
+        remainingSerials: 0,
       });
-      setSerial("");
-      toast.success("Activated — auth code + download ready");
+      toast.success("Auth code ready");
       void load(data.payment.sessionId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -369,11 +371,12 @@ function ActivatePage() {
     }
   }
 
-  const showSerialForm =
+  const showExamPick =
     data &&
     (data.classification.flow === "os_serial" ||
       data.classification.flow === "proctor_serial") &&
-    (!done?.machine || canAddAnotherSerial);
+    !done?.authCode &&
+    needsExamPick;
 
   return (
     <Shell isAdmin={isAdmin}>
@@ -383,10 +386,10 @@ function ActivatePage() {
           Activate your purchase
         </h1>
         <p className="mt-2 text-sm text-fg-muted">
-          Stripe verifies payment automatically. Exam products (SAT/ACT/GMAT/GRE)
-          → pick OS + serial to receive your <strong>auth code</strong> and{" "}
-          <strong>app download</strong>. Research / internship → progress link.
-          Proctor tools → serial + steps.
+          Stripe verifies payment automatically. Software purchases give you an{" "}
+          <strong>auth code</strong> and <strong>app download</strong> — enter
+          the code in the ExamHub app (no serial). Research / internship →
+          progress link.
         </p>
 
         {!sessionFromUrl ? (
@@ -502,8 +505,10 @@ function ActivatePage() {
                 </CardHeader>
                 <CardContent className="space-y-4 text-sm text-green-900">
                   <p>
-                    <strong>{done.machine.keyName}</strong> · {done.machine.os}{" "}
-                    · {done.machine.productKey}
+                    <strong>{done.machine.keyName}</strong>
+                    {done.machine.productKey
+                      ? ` · ${done.machine.productKey}`
+                      : ""}
                   </p>
 
                   <div className="space-y-2 rounded-xl border border-green-300 bg-white/90 p-3">
@@ -536,22 +541,6 @@ function ActivatePage() {
                     )}
                   </div>
 
-                  {data.existingMachines && data.existingMachines.length > 1 ? (
-                    <ul className="list-inside list-disc text-xs text-fg-muted">
-                      {data.existingMachines.map((m) => (
-                        <li key={m.id}>
-                          {m.keyName} · {m.status}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {typeof done.remainingSerials === "number" &&
-                  done.remainingSerials > 0 ? (
-                    <p className="text-xs">
-                      You can register {done.remainingSerials} more machine(s)
-                      on this payment below.
-                    </p>
-                  ) : null}
                   <DeliveryBlock
                     items={done.delivery || data.delivery || []}
                     byOs={done.deliveryByOs || data.deliveryByOs}
@@ -624,110 +613,69 @@ function ActivatePage() {
               </Card>
             ) : null}
 
-            {showSerialForm ? (
+            {showExamPick ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <ShieldCheck className="h-4 w-4 text-primary" />
-                    {data.classification.flow === "proctor_serial"
-                      ? "Device whitelist + proctor steps"
-                      : done?.machine
-                        ? "Register another machine"
-                        : "Choose OS & enter serial"}
+                    Choose your exam
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={registerSerial} className="space-y-5">
-                    {needsExamPick ? (
-                      <div className="space-y-2">
-                        <Label>Exam</Label>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {(["sat", "act", "gmat", "gre"] as const).map((x) => (
-                            <button
-                              key={x}
-                              type="button"
-                              onClick={() => setExam(x)}
-                              className={cn(
-                                "rounded-xl border px-3 py-3 text-sm font-bold uppercase",
-                                exam === x
-                                  ? "border-primary bg-primary-soft text-primary"
-                                  : "border-border bg-surface text-fg-muted",
-                              )}
-                            >
-                              {x}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
+                  <form
+                    onSubmit={(e) => void issueAuth(e)}
+                    className="space-y-5"
+                  >
+                    <p className="text-sm text-fg-muted">
+                      This payment is a bare tier — pick which exam pathway your
+                      auth code should unlock.
+                    </p>
                     <div className="space-y-2">
-                      <Label>Operating system</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setOs("macos")}
-                          className={cn(
-                            "flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-6 transition",
-                            os === "macos"
-                              ? "border-primary bg-primary-soft shadow-sm"
-                              : "border-border bg-surface hover:border-primary/40",
-                          )}
-                        >
-                          <Apple className="h-8 w-8" />
-                          <span className="font-bold">macOS</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOs("windows")}
-                          className={cn(
-                            "flex flex-col items-center gap-2 rounded-2xl border-2 px-4 py-6 transition",
-                            os === "windows"
-                              ? "border-primary bg-primary-soft shadow-sm"
-                              : "border-border bg-surface hover:border-primary/40",
-                          )}
-                        >
-                          <Monitor className="h-8 w-8" />
-                          <span className="font-bold">Windows</span>
-                        </button>
+                      <Label>Exam</Label>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {(["sat", "act", "gmat", "gre"] as const).map((x) => (
+                          <button
+                            key={x}
+                            type="button"
+                            onClick={() => setExam(x)}
+                            className={cn(
+                              "rounded-xl border px-3 py-3 text-sm font-bold uppercase",
+                              exam === x
+                                ? "border-primary bg-primary-soft text-primary"
+                                : "border-border bg-surface text-fg-muted",
+                            )}
+                          >
+                            {x}
+                          </button>
+                        ))}
                       </div>
                     </div>
-
-                    {os ? (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="serial">
-                          {os === "macos"
-                            ? "Mac serial number"
-                            : "Windows serial / machine ID"}
-                        </Label>
-                        <Input
-                          id="serial"
-                          required
-                          value={serial}
-                          onChange={(e) => setSerial(e.target.value)}
-                          placeholder={
-                            os === "macos"
-                              ? "About This Mac → Serial Number"
-                              : "BIOS / device serial"
-                          }
-                          className="font-mono text-sm"
-                        />
-                        <p className="text-[11px] text-muted">
-                          Your serial is SHA-256 hashed server-side and only the hash is stored
-                          for admin. Paid Stripe sessions auto-approve as{" "}
-                          <strong>active</strong>.
-                        </p>
-                      </div>
-                    ) : null}
-
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={busy || !os || !serial.trim()}
-                    >
-                      {busy ? "Whitelisting…" : "Activate & whitelist"}
+                    <Button type="submit" disabled={busy} className="w-full">
+                      {busy ? "Issuing…" : "Get auth code"}
                     </Button>
                   </form>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {/* Software purchase without auth yet (should be rare — GET auto-issues) */}
+            {data &&
+            (data.classification.flow === "os_serial" ||
+              data.classification.flow === "proctor_serial") &&
+            !done?.authCode &&
+            !showExamPick ? (
+              <Card>
+                <CardContent className="space-y-3 p-5">
+                  <p className="text-sm text-fg-muted">
+                    Preparing your auth code…
+                  </p>
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void issueAuth()}
+                  >
+                    {busy ? "Issuing…" : "Get auth code"}
+                  </Button>
                 </CardContent>
               </Card>
             ) : null}
@@ -735,13 +683,7 @@ function ActivatePage() {
         ) : null}
 
         <p className="mt-8 text-center text-xs text-muted">
-          Manual device request (no payment)?{" "}
-          <Link
-            to="/verify"
-            className="font-semibold text-primary hover:underline"
-          >
-            /verify
-          </Link>
+          Need help? Message support on Telegram from the header.
         </p>
       </div>
     </Shell>

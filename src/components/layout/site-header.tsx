@@ -138,7 +138,7 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-surface/90 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/75">
+    <header className="sticky top-0 z-50 w-full border-b-2 border-border-strong/20 bg-surface/92 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/80">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:h-16 sm:px-6">
         {/* Brand */}
         <Link
@@ -146,7 +146,7 @@ export function SiteHeader({ isAdmin: _unused = false }: { isAdmin?: boolean }) 
           className="group flex shrink-0 items-center gap-2"
           onClick={closeMobile}
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-primary-fg shadow-md transition-transform group-hover:scale-105 sm:h-9 sm:w-9">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl border-2 border-border-strong bg-primary text-primary-fg shadow-md transition-transform group-hover:scale-110 group-hover:rotate-[-6deg] sm:h-9 sm:w-9">
             <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight text-fg sm:text-xl">

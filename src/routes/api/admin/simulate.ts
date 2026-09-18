@@ -4,18 +4,16 @@ import {
   markSerialConsumed,
   productKeyFromAmount,
   publicSiteOrigin,
-  upsertPaidSession,
-} from "@/lib/server/stripe-payments";
+  upsertPaidSession} from "@/lib/server/stripe-payments";
 import {
   createServiceProject,
-  resolveDeliveryAssets,
-} from "@/lib/server/delivery";
+  resolveDeliveryAssets} from "@/lib/server/delivery";
 import {
-  clientIp,
   json,
   jsonError,
   requireAdminFromRequest,
-  upsertMachine,
+  issuePurchaseAuthKey,
+  whitelistCategoryFromProductKey,
 } from "@/lib/server/whitelist";
 import { randomBytes } from "node:crypto";
 
@@ -26,30 +24,24 @@ const PRODUCT_PRESETS: Record<
   standard: {
     amountCents: 19000,
     productKey: "standard",
-    label: "SAT/ACT Standard $190",
-  },
+    label: "SAT/ACT Standard $190"},
   pro: { amountCents: 45000, productKey: "pro", label: "SAT/ACT Pro $450" },
   premium: {
     amountCents: 89000,
     productKey: "premium",
-    label: "SAT/ACT Premium $890",
-  },
+    label: "SAT/ACT Premium $890"},
   research: {
     amountCents: 80000,
     productKey: "research",
-    label: "Research paper $800",
-  },
+    label: "Research paper $800"},
   internship: {
     amountCents: 75000,
     productKey: "internship",
-    label: "Internship $750",
-  },
+    label: "Internship $750"},
   proctor: {
     amountCents: 19000,
     productKey: "proctor-honorlock",
-    label: "Proctor tool $190",
-  },
-};
+    label: "Proctor tool $190"}};
 
 export const Route = createFileRoute("/api/admin/simulate")({
   server: {
@@ -61,9 +53,7 @@ export const Route = createFileRoute("/api/admin/simulate")({
           return json({
             presets: Object.entries(PRODUCT_PRESETS).map(([id, p]) => ({
               id,
-              ...p,
-            })),
-          });
+              ...p}))});
         } catch (err) {
           return jsonError(err, 403);
         }
@@ -83,7 +73,7 @@ export const Route = createFileRoute("/api/admin/simulate")({
             action?: "payment_only" | "whitelist" | "progress";
             os?: "macos" | "windows";
             serial?: string;
-            exam?: "sat" | "act";
+            exam?: "sat" | "act" | "gre" | "gmat";
             contactMethod?: string;
             contactValue?: string;
             notes?: string;
@@ -117,9 +107,7 @@ export const Route = createFileRoute("/api/admin/simulate")({
             meta: {
               simulated: true,
               productPreset: productId,
-              createdBy: "admin-sim",
-            },
-          });
+              createdBy: "admin-sim"}});
 
           const origin = publicSiteOrigin(request);
           const activateUrl = `${origin}/activate?session_id=${encodeURIComponent(sessionId)}`;
@@ -127,10 +115,8 @@ export const Route = createFileRoute("/api/admin/simulate")({
 
           // --- Full whitelist (SAT/ACT/proctor) ---
           if (action === "whitelist") {
-            const serial = body.serial?.trim();
-            if (!serial) return jsonError("serial required for whitelist sim", 400);
-            const os = body.os === "windows" ? "windows" : "macos";
-            const exam = body.exam === "act" ? "act" : "sat";
+            const os = body.os === "windows" ? "windows" : body.os === "macos" ? "macos" : null;
+            const exam = body.exam === "act" ? "act" : body.exam === "gre" ? "gre" : body.exam === "gmat" ? "gmat" : "sat";
             let productKey = preset.productKey;
             if (["standard", "pro", "premium"].includes(productKey)) {
               productKey = `${exam}-${productKey}`;
@@ -142,63 +128,53 @@ export const Route = createFileRoute("/api/admin/simulate")({
                 : productKey.includes("standard")
                   ? "standard"
                   : "pro";
-            const note = `Serial stored as SHA-256 only\nOS: ${os}\nProduct: ${productKey}\n[SIMULATED]`;
+            const category = whitelistCategoryFromProductKey(productKey);
             const keyName =
               body.keyName?.trim() ||
-              `[SIM] ${exam.toUpperCase()} ${tier} · ${os}`;
+              `[SIM] ${category.toUpperCase()} ${tier} · auth code`;
 
-            const machine = await upsertMachine({
-              keyName,
-              machineInput: serial,
-              hostname: os,
-              note,
-              status: "active",
-              forever: true,
-              os,
-              lastIp: await clientIp(request),
-              source: "stripe",
-              productKey,
+            const issued = await issuePurchaseAuthKey({
+              productKey: category,
               stripeSessionId: sessionId,
-              rawSerialNote: null,
-            });
-
-            await markSerialConsumed(sessionId);
+              os,
+              keyName,
+              note: `Simulated Stripe purchase · ${productKey} · auth-key only`});
+            if (issued.created) {
+              try {
+                await markSerialConsumed(sessionId);
+              } catch {
+                /* ignore */
+              }
+            }
             const assets = await resolveDeliveryAssets({
               productKey,
               exam: productKey.startsWith("proctor") ? null : exam,
               tier,
-              os,
-              kind: productKey.startsWith("proctor") ? "proctor" : exam,
-            });
-
+              os: os || undefined,
+              kind: productKey.startsWith("proctor") ? "proctor" : "exam"});
             return json({
               ok: true,
               simulated: true,
-              payment: {
-                sessionId: payment.sessionId,
-                productKey: payment.productKey,
-                amountCents: payment.amountCents,
-                email: payment.customerEmail,
-              },
+              action: "whitelist",
+              payment,
               activateUrl,
               machine: {
-                id: machine.id,
-                keyName: machine.keyName,
+                id: issued.row.id,
+                keyName: issued.row.keyName,
                 status: "active",
-                os,
-                productKey,
-                source: "stripe",
-              },
+                productKey: category},
+              authCode: issued.authCode,
               delivery: assets.map((a) => ({
                 label: a.label,
-                fileUrl: a.fileUrl,
+                fileUrl: a.hasFileBlob
+                  ? `/api/delivery/file/${a.id}`
+                  : a.fileUrl || a.externalUrl,
                 message: a.message,
-                steps: a.steps,
-              })),
-            });
+                steps: a.steps})),
+              message:
+                "Simulated paid session + active auth code. Check Machines → Active auth codes (source: stripe)."});
           }
 
-          // --- Progress project (research / internship) ---
           if (action === "progress") {
             const kind =
               preset.productKey === "internship" ? "internship" : "research";
@@ -208,8 +184,7 @@ export const Route = createFileRoute("/api/admin/simulate")({
               contactMethod: body.contactMethod?.trim() || "email",
               contactValue: body.contactValue?.trim() || email,
               title: `[SIM] ${kind} · ${email}`,
-              notes: body.notes?.trim() || "Admin simulation",
-            });
+              notes: body.notes?.trim() || "Admin simulation"});
             await attachServiceToken(sessionId, project.publicToken);
             const progressUrl = `${origin}/progress/${project.publicToken}`;
             return json({
@@ -219,18 +194,15 @@ export const Route = createFileRoute("/api/admin/simulate")({
                 sessionId: payment.sessionId,
                 productKey: payment.productKey,
                 amountCents: payment.amountCents,
-                email: payment.customerEmail,
-              },
+                email: payment.customerEmail},
               activateUrl,
               project: {
                 id: project.id,
                 token: project.publicToken,
                 kind: project.kind,
                 progress: project.progress,
-                status: project.status,
-              },
-              progressUrl,
-            });
+                status: project.status},
+              progressUrl});
           }
 
           // --- Payment only: open /activate as buyer would after Stripe ---
@@ -241,16 +213,11 @@ export const Route = createFileRoute("/api/admin/simulate")({
               sessionId: payment.sessionId,
               productKey: payment.productKey,
               amountCents: payment.amountCents,
-              email: payment.customerEmail,
-            },
+              email: payment.customerEmail},
             activateUrl,
             hint:
-              "Open activateUrl as the buyer. Pick OS + serial (exam products) or contact (research/internship).",
-          });
+              "Open activateUrl as the buyer. Software purchases auto-issue an auth code; research/internship need contact."});
         } catch (err) {
           return jsonError(err, 400);
         }
-      },
-    },
-  },
-});
+      }}}});

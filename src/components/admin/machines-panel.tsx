@@ -134,6 +134,9 @@ export function MachinesPanel() {
     id: string;
     expiresAt: string | null;
   } | null>(null);
+  const [authKeyFilter, setAuthKeyFilter] = useState<"active" | "all" | "revoked">(
+    "active",
+  );
   const [authKeys, setAuthKeys] = useState<
     Array<{
       id: string;
@@ -542,97 +545,65 @@ export function MachinesPanel() {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <KeyRound className="h-4 w-4 text-primary" />
-            Generate auth key
+            Active auth codes
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-fg-muted">
-            Mint an auth key for a software category without Stripe. The app
-            authorizes with the auth key alone (no serial). Key stays active
-            until you revoke it or it expires. Not available for research /
-            non-software.
+            Purchase (Stripe) and admin-generated auth codes the ExamHub app
+            uses to authorize — no buyer serial. Filter defaults to{" "}
+            <strong>active</strong>. Generate a code below without a Stripe
+            purchase when needed.
           </p>
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <div className="space-y-1.5">
-              <Label>Category</Label>
-              <Select
-                value={genCategory}
-                onChange={(e) => setGenCategory(e.target.value)}
-              >
-                {(["sat", "act", "gre", "gmat", "proctor"] as const).map((c) => (
-                  <option key={c} value={c}>
-                    {c.toUpperCase()}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Expiry (optional)</Label>
-              <Input
-                type="datetime-local"
-                value={genExpires}
-                onChange={(e) => setGenExpires(e.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">
+              Active auth codes
+            </p>
+            {(["active", "all", "revoked"] as const).map((f) => (
+              <button
+                key={f}
                 type="button"
-                disabled={genBusy}
-                onClick={() => void generateAuthKey()}
-                className="w-full"
+                onClick={() => setAuthKeyFilter(f)}
+                className={
+                  authKeyFilter === f
+                    ? "rounded-md border border-primary bg-primary-soft px-2 py-0.5 text-[10px] font-bold uppercase text-primary"
+                    : "rounded-md border border-border px-2 py-0.5 text-[10px] font-semibold uppercase text-muted"
+                }
               >
-                {genBusy ? "Generating…" : "Generate auth key"}
-              </Button>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Note / label (optional)</Label>
-            <Input
-              value={genNote}
-              onChange={(e) => setGenNote(e.target.value)}
-              placeholder="e.g. Support ticket #123 · replacement key"
-            />
+                {f}
+              </button>
+            ))}
+            <span className="text-[10px] text-muted">
+              {
+                authKeys.filter((k) => (k.effectiveStatus || k.status) === "active")
+                  .length
+              }{" "}
+              active · {authKeys.length} total
+            </span>
           </div>
 
-          {lastGenerated ? (
-            <div className="space-y-2 rounded-xl border border-green-300 bg-green-50/80 p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-green-900">
-                New key · {lastGenerated.category.toUpperCase()} — copy now
-              </p>
-              <code className="block break-all rounded-lg bg-white px-3 py-2 font-mono text-xs text-fg">
-                {lastGenerated.authKey}
-              </code>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(lastGenerated.authKey);
-                    toast.success("Copied");
-                  }}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy
-                </Button>
-                {lastGenerated.expiresAt ? (
-                  <span className="text-[11px] text-fg-muted">
-                    Expires {new Date(lastGenerated.expiresAt).toLocaleString()}
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-fg-muted">No expiry</span>
-                )}
-              </div>
-            </div>
-          ) : null}
-
-          {authKeys.length > 0 ? (
+          {authKeys.filter((k) => {
+            const eff = k.effectiveStatus || k.status || "unknown";
+            if (authKeyFilter === "active") return eff === "active";
+            if (authKeyFilter === "revoked")
+              return eff === "revoked" || eff === "blocked" || eff === "expired";
+            return true;
+          }).length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Auth keys ({authKeys.filter((k) => k.effectiveStatus === "active").length} active · {authKeys.length} total)
-              </p>
-              <div className="max-h-56 space-y-1.5 overflow-y-auto">
-                {authKeys.map((k) => {
+              <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                {authKeys
+                  .filter((k) => {
+                    const eff = k.effectiveStatus || k.status || "unknown";
+                    if (authKeyFilter === "active") return eff === "active";
+                    if (authKeyFilter === "revoked")
+                      return (
+                        eff === "revoked" ||
+                        eff === "blocked" ||
+                        eff === "expired"
+                      );
+                    return true;
+                  })
+                  .map((k) => {
                   const eff = k.effectiveStatus || k.status || "unknown";
                   return (
                   <div
@@ -713,6 +684,87 @@ export function MachinesPanel() {
               </div>
             </div>
           ) : null}
+
+          <div className="border-t border-border/70 pt-3">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
+              Generate auth code
+            </p>
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+            <div className="space-y-1.5">
+              <Label>Category</Label>
+              <Select
+                value={genCategory}
+                onChange={(e) => setGenCategory(e.target.value)}
+              >
+                {(["sat", "act", "gre", "gmat", "proctor"] as const).map((c) => (
+                  <option key={c} value={c}>
+                    {c.toUpperCase()}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Expiry (optional)</Label>
+              <Input
+                type="datetime-local"
+                value={genExpires}
+                onChange={(e) => setGenExpires(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                disabled={genBusy}
+                onClick={() => void generateAuthKey()}
+                className="w-full"
+              >
+                {genBusy ? "Generating…" : "Generate auth key"}
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Note / label (optional)</Label>
+            <Input
+              value={genNote}
+              onChange={(e) => setGenNote(e.target.value)}
+              placeholder="e.g. Support ticket #123 · replacement key"
+            />
+          </div>
+          </div>
+
+          {lastGenerated ? (
+            <div className="space-y-2 rounded-xl border border-green-300 bg-green-50/80 p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-green-900">
+                New key · {lastGenerated.category.toUpperCase()} — copy now
+              </p>
+              <code className="block break-all rounded-lg bg-white px-3 py-2 font-mono text-xs text-fg">
+                {lastGenerated.authKey}
+              </code>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(lastGenerated.authKey);
+                    toast.success("Copied");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy
+                </Button>
+                {lastGenerated.expiresAt ? (
+                  <span className="text-[11px] text-fg-muted">
+                    Expires {new Date(lastGenerated.expiresAt).toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-fg-muted">No expiry</span>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+
         </CardContent>
       </Card>
 

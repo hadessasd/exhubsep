@@ -1,3 +1,7 @@
+## Homepage showcase videos
+
+Admin → **Delivery** → **Homepage showcase videos**: upload mp4/webm and/or paste YouTube/Vimeo/direct URL per category (`sat|act|gre|gmat|proctor`). Uploaded files play from `GET /api/showcase-videos/file/:category`. Public list: `GET /api/showcase-videos`. Homepage muted autoplay + controls; empty categories hide the player. Uploaded file takes precedence over URL.
+
 # ExamHub integration notes
 
 ## Stripe Payment Links
@@ -141,12 +145,14 @@ POST `https://examhub.shop/api/whitelist/verify`
 {"machineId":"C02ABC123XYZ","category":"sat"}
 ```
 
-After a successful Stripe purchase, `/activate` may still accept a buyer serial for purchase bookkeeping; the response includes:
+After a successful Stripe purchase, `/activate` **auto-issues an active auth code** for the software category (no serial / machine registration). The page shows:
 
-- **authCode** — `machine_whitelist.session_token` for the ExamHub app (`POST /api/whitelist/verify` with `authKey`)
-- **delivery** — download URL scoped to the purchased exam/tier/OS (uploaded blob at `/api/delivery/file/:id` and/or external link) + instructions
+- **authCode** — `machine_whitelist.session_token` (`source=stripe`) for the ExamHub app
+- **delivery** — download URL scoped to the purchased exam/tier/OS + instructions
 
-The auth code stays active until revoked or expired. The app authorizes with the same auth key on every check.
+Buyer enters the auth code in the app. `POST /api/whitelist/verify` `{ "authKey": "…" }` authorizes. The code stays active until revoked or expired.
+
+Admin → **Machines → Active auth codes** lists Stripe-issued and admin-generated keys (filter defaults to active; revoke supported).
 
 
 ## Product → software delivery mapping

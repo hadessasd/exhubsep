@@ -4,16 +4,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:not-disabled:scale-[0.96] [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-bold transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-fg shadow-md hover:bg-primary-hover",
+          "btn-comic border-2 border-border-strong bg-primary text-primary-fg hover:bg-primary-hover",
         secondary:
-          "bg-primary-soft text-primary hover:bg-primary-soft/80",
+          "btn-comic border-2 border-border-strong bg-primary-soft text-primary hover:bg-accent-soft",
         outline:
-          "border border-border-strong bg-surface text-fg shadow-sm hover:bg-bg-soft hover:border-primary/40",
+          "btn-comic border-2 border-border-strong bg-surface text-fg hover:bg-bg-soft",
         ghost: "text-fg-muted hover:bg-primary-soft hover:text-primary",
         danger: "bg-danger text-primary-fg hover:bg-danger/90",
         success: "bg-success text-primary-fg hover:bg-success/90",
