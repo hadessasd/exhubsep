@@ -14,12 +14,20 @@ export function ProductCard({
   product: Product;
   featured?: boolean;
 }) {
+  const tier = product.tier;
+  const featureCount = featured ? 6 : tier ? 4 : 3;
+  const featureList = product.features
+    .filter((f) => !/^everything in /i.test(f))
+    .slice(0, featureCount);
+
   return (
     <Card
       className={cn(
         "card-hover comic-panel flex h-full flex-col overflow-hidden border-border-strong",
         featured &&
           "bg-gradient-to-br from-surface via-accent-soft/30 to-primary-soft/50",
+        tier === "pro" && "ring-2 ring-primary/30",
+        tier === "premium" && "ring-2 ring-success/35",
       )}
     >
       <CardContent
@@ -33,11 +41,25 @@ export function ProductCard({
             {featured ? (
               <span className="comic-sticker mb-2 inline-flex">Campus pick</span>
             ) : null}
-            <p className="text-xs font-extrabold uppercase tracking-wider text-primary">
-              {product.category === "proctoring"
-                ? "Proctor tool"
-                : product.category.toUpperCase()}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-extrabold uppercase tracking-wider text-primary">
+                {product.category === "proctoring"
+                  ? "Proctor tool"
+                  : product.category.toUpperCase()}
+              </p>
+              {tier ? (
+                <span
+                  className={cn(
+                    "tier-chip",
+                    tier === "standard" && "tier-chip-standard",
+                    tier === "pro" && "tier-chip-pro",
+                    tier === "premium" && "tier-chip-premium",
+                  )}
+                >
+                  {tier}
+                </span>
+              ) : null}
+            </div>
             <h3
               className={cn(
                 "mt-1 font-display font-semibold text-fg",
@@ -53,7 +75,7 @@ export function ProductCard({
           {product.shortDescription}
         </p>
         <ul className="space-y-1.5">
-          {product.features.slice(0, featured ? 5 : 3).map((f) => (
+          {featureList.map((f) => (
             <li key={f} className="flex items-start gap-2 text-sm text-fg-muted">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
               <span>{f}</span>
@@ -68,7 +90,7 @@ export function ProductCard({
             </p>
           </div>
           <Link to="/products/$slug" params={{ slug: product.slug }}>
-            <Button size={featured ? "default" : "sm"}>
+            <Button size={featured ? "default" : "sm"} className="btn-comic">
               View
               <ArrowRight className="h-4 w-4" />
             </Button>

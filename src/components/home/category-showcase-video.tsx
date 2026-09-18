@@ -131,18 +131,18 @@ export function CategoryShowcaseVideo({
       ref={wrapRef}
       className={
         className ||
-        "comic-panel mb-5 overflow-hidden bg-surface"
+        "comic-panel video-feature mb-6 w-full overflow-hidden bg-surface"
       }
     >
-      <div className="relative aspect-video w-full bg-[#1a120c]">
-        <span className="comic-sticker absolute left-3 top-3 z-10" aria-hidden>
+      <div className="video-stage relative w-full overflow-hidden rounded-t-[calc(var(--radius-xl)-2px)] bg-[#140e0a]">
+        <span className="comic-sticker absolute left-3 top-3 z-10 float-soft" aria-hidden>
           LIVE
         </span>
         {playback.kind === "youtube" || playback.kind === "vimeo" ? (
           <iframe
             title={video?.label || `${category} showcase`}
             src={playback.embedSrc || undefined}
-            className="h-full w-full"
+            className="absolute inset-0 h-full w-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             loading="eager"
@@ -150,7 +150,7 @@ export function CategoryShowcaseVideo({
         ) : playback.src ? (
           <video
             ref={videoRef}
-            className="h-full w-full object-contain"
+            className="absolute inset-0 h-full w-full object-cover"
             src={playback.src}
             autoPlay
             muted
@@ -162,7 +162,7 @@ export function CategoryShowcaseVideo({
         ) : null}
       </div>
       {video?.label ? (
-        <p className="border-t-2 border-[#2c1a0e]/25 bg-accent-soft/40 px-3 py-2 text-xs font-semibold text-fg">
+        <p className="border-t-2 border-border-strong/20 bg-accent-soft/50 px-3 py-2.5 text-xs font-bold text-fg sm:px-4">
           {video.label}
         </p>
       ) : null}

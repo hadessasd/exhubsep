@@ -4,28 +4,28 @@
 
 /* School locker + comic panel — ivory paper, chalk navy, campus rust, sticker gold */
 @theme {
-  --color-bg: #f4ead6;
-  --color-bg-soft: #e8d9be;
-  --color-surface: #fff8ec;
-  --color-surface-elevated: #fffdf8;
-  --color-fg: #1f140c;
-  --color-fg-muted: #5c4634;
-  --color-muted: #7a624c;
-  --color-primary: #c45c26;
-  --color-primary-hover: #a3491c;
-  --color-primary-soft: #f6dcc8;
+  --color-bg: #f3e6cf;
+  --color-bg-soft: #e6d4b4;
+  --color-surface: #fff9ed;
+  --color-surface-elevated: #fffdf7;
+  --color-fg: #1a120c;
+  --color-fg-muted: #564030;
+  --color-muted: #74604c;
+  --color-primary: #c2511a;
+  --color-primary-hover: #9e3f12;
+  --color-primary-soft: #f5d7c0;
   --color-primary-fg: #fff8ec;
-  --color-accent: #e0b125;
-  --color-accent-soft: #fbecb8;
-  --color-border: #d4c0a0;
-  --color-border-strong: #1f140c;
-  --color-success: #2f7a45;
-  --color-success-soft: #d9f0e0;
-  --color-warning: #c4891a;
-  --color-warning-soft: #fcecc8;
-  --color-danger: #b33a2b;
-  --color-danger-soft: #f7d5cf;
-  --color-ring: #c45c26;
+  --color-accent: #e8b41f;
+  --color-accent-soft: #fcedb4;
+  --color-border: #d2bd99;
+  --color-border-strong: #1a120c;
+  --color-success: #287a42;
+  --color-success-soft: #d4efdc;
+  --color-warning: #c48412;
+  --color-warning-soft: #fcecc4;
+  --color-danger: #b23426;
+  --color-danger-soft: #f6d2cc;
+  --color-ring: #c2511a;
   --radius-sm: 0.45rem;
   --radius-md: 0.7rem;
   --radius-lg: 0.95rem;
@@ -306,18 +306,8 @@
   }
 }
 
-.reveal-on-scroll {
-  opacity: 0;
-  transform: translateY(28px);
-  transition:
-    opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-}
+/* reveal rules moved below */
 
-.reveal-on-scroll.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
 
 .card-hover {
   transition:
@@ -327,8 +317,8 @@
 }
 
 .card-hover:hover {
-  transform: translateY(-4px) rotate(-0.4deg);
-  box-shadow: 7px 7px 0 rgb(31 20 12 / 0.22);
+  transform: translateY(-5px) rotate(-0.5deg);
+  box-shadow: 8px 8px 0 rgb(26 18 12 / 0.24);
   border-color: var(--color-border-strong);
 }
 
@@ -429,12 +419,110 @@ header.sticky {
   border-bottom-color: rgb(31 20 12 / 0.18) !important;
 }
 
+
+/* —— Motion polish —— */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(32px) scale(0.985);
+  filter: blur(2px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.7s ease;
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-panel-in {
+  animation: panel-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.video-feature {
+  animation: panel-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 6px 6px 0 rgb(26 18 12 / 0.22);
+}
+
+.video-feature .video-stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background: #140e0a;
+}
+
+.video-feature .video-stage::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 2px rgb(255 248 236 / 0.08);
+  border-radius: inherit;
+}
+
+.float-soft {
+  animation: float-soft 5.5s ease-in-out infinite;
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.tier-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 2px solid var(--color-border-strong);
+  padding: 0.12rem 0.55rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0 rgb(26 18 12 / 0.18);
+}
+
+.tier-chip-standard {
+  background: var(--color-bg-soft);
+  color: var(--color-fg);
+}
+.tier-chip-pro {
+  background: var(--color-primary);
+  color: #fff;
+}
+.tier-chip-premium {
+  background: var(--color-success);
+  color: #fff;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .doodle-item,
   .doodle-orb,
   .stagger-in > *,
   .comic-sticker,
-  .reveal-on-scroll {
+  .reveal-on-scroll,
+  .animate-panel-in,
+  .video-feature,
+  .float-soft {
     animation: none !important;
     opacity: 1 !important;
     filter: none !important;

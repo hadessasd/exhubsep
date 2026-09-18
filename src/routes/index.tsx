@@ -15,6 +15,7 @@ import {
 import { ProductCard } from "@/components/products/product-card";
 import { CategoryShowcaseVideo } from "@/components/home/category-showcase-video";
 import { Reveal } from "@/components/home/reveal";
+import { TierComparison } from "@/components/home/tier-comparison";
 import {
   ArrowRight,
   ShieldCheck,
@@ -261,7 +262,7 @@ function HomePage() {
             </a>
           </div>
 
-          <CategoryShowcaseVideo category="proctor" className="comic-panel mb-5 max-w-3xl overflow-hidden bg-surface" />
+          <CategoryShowcaseVideo category="proctor" className="comic-panel video-feature mb-6 w-full overflow-hidden bg-surface" />
 
           {universal ? (
             <div id="section-universal" className="mb-6 scroll-mt-24">
@@ -452,6 +453,7 @@ function CatalogBlock({
   showcaseCategory?: string;
 }) {
   if (!products.length) return null;
+  const hasTiers = products.some((p) => p.tier === "standard" || p.tier === "pro" || p.tier === "premium");
   return (
     <Reveal>
       <section
@@ -468,9 +470,10 @@ function CatalogBlock({
         {showcaseCategory ? (
           <CategoryShowcaseVideo
             category={showcaseCategory}
-            className="comic-panel mb-5 max-w-3xl overflow-hidden bg-surface"
+            className="comic-panel video-feature mb-6 w-full overflow-hidden bg-surface"
           />
         ) : null}
+        {hasTiers ? <TierComparison products={products} /> : null}
         <div className="stagger-in grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
